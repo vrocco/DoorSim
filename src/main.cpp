@@ -484,6 +484,29 @@ void speakerOnFailure()
   }
 }
 
+bool validateWiegand26Parity()
+{
+  if (bitCount != 26)
+  {
+    return false;
+  }
+
+  unsigned int firstHalfOnes = databits[0];
+  for (unsigned int i = 1; i <= 12; i++)
+  {
+    firstHalfOnes += databits[i];
+  }
+
+  unsigned int secondHalfOnes = databits[25];
+  for (unsigned int i = 13; i <= 24; i++)
+  {
+    secondHalfOnes += databits[i];
+  }
+
+  // Standard Wiegand-26: leading parity is even, trailing parity is odd.
+  return ((firstHalfOnes % 2) == 0) && ((secondHalfOnes % 2) == 1);
+}
+
 void printCardData()
 {
   if (MODE == "CTF")
@@ -541,6 +564,12 @@ void printCardData()
       Serial.print("[*] Raw: ");
       Serial.println(rawCardData);
 
+      if (bitCount == 26)
+      {
+        Serial.print("[*] Wiegand-26 parity: ");
+        Serial.println(validateWiegand26Parity() ? "OK" : "BAD");
+      }
+
       // LCD Printing
       lcd.clear();
       lcd.setCursor(0, 0);
@@ -554,6 +583,12 @@ void printCardData()
       lcd.setCursor(9, 1);
       lcd.print(" CN: ");
       lcd.print(cardNumber);
+      if (bitCount == 26)
+      {
+        lcd.setCursor(0, 2);
+        lcd.print("Parity: ");
+        lcd.print(validateWiegand26Parity() ? "OK" : "BAD");
+      }
       lcd.setCursor(0, 3);
       lcd.print("Hex: ");
       hexCardData.toUpperCase();
