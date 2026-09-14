@@ -822,6 +822,27 @@ void processHIDCard()
   // hexCardData = String(cardChunk1, HEX) + String(cardChunk2, HEX);
 }
 
+bool isSupportedWiegandBitCount(unsigned int bits)
+{
+  switch (bits)
+  {
+  case 26:
+  case 27:
+  case 29:
+  case 30:
+  case 31:
+  case 32:
+  case 33:
+  case 34:
+  case 35:
+  case 36:
+    return true;
+
+  default:
+    return false;
+  }
+}
+
 void processCardData()
 {
   Serial.println("Processing card data...");
@@ -837,7 +858,7 @@ void processCardData()
   Serial.print("[*] bitCount: ");
   Serial.println(bitCount);
 
-  if (bitCount >= 26 && bitCount <= 96)
+  if (isSupportedWiegandBitCount(bitCount))
   {
     processHIDCard();
   }
@@ -1231,12 +1252,37 @@ void loop() {
     if (!allBitsAreOnes()) { 
       // Process the card data     
       processCardData();
-      // Print the card data if it meets the criteria
-      if (bitCount >= 26 && bitCount <= 36 || bitCount == 96) {
-        // Display card data on LCD and Serial
+
+      if (isSupportedWiegandBitCount(bitCount)) {
+        // Display decoded card data on LCD and Serial
         printCardData();
         // Print all stored card data to Serial
         printAllCardData();
+      }
+      else if (bitCount >= 26 && bitCount <= 96) {
+        Serial.print("[-] Unsupported Wiegand bit length: ");
+        Serial.println(bitCount);
+        Serial.print("[*] Hex: ");
+        Serial.println(hexCardData);
+        Serial.print("[*] Raw: ");
+        Serial.println(rawCardData);
+
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Unsupported Wiegand");
+        lcd.setCursor(0, 1);
+        lcd.print("Bits: ");
+        lcd.print(bitCount);
+        lcd.print(" Hex:");
+        lcd.setCursor(0, 2);
+        lcd.print(hexCardData.substring(0, 20));
+        if (hexCardData.length() > 20) {
+          lcd.setCursor(0, 3);
+          lcd.print(hexCardData.substring(20));
+        }
+
+        lastCardTime = millis();
+        displayingCard = true;
       }
     }
 
