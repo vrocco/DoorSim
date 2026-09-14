@@ -875,14 +875,20 @@ void cleanupCardData()
 
 bool allBitsAreOnes()
 {
-  for (int i = 0; i < MAX_BITS; i++)
+  if (bitCount == 0)
   {
-    if (databits[i] != 0xFF)
-    {               // Check if each byte is not equal to 0xFF
-      return false; // If any byte is not 0xFF, not all bits are ones
+    return false;
+  }
+
+  for (unsigned int i = 0; i < bitCount; i++)
+  {
+    if (databits[i] != 1)
+    {
+      return false;
     }
   }
-  return true; // All bytes were 0xFF, so all bits are ones
+
+  return true;
 }
 
 String centerText(const String &text, int width)
