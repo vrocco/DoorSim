@@ -29,8 +29,8 @@ String MODE = "CTF";
 
 // max number of bits
 #define MAX_BITS 100
-// time to wait for another weigand pulse
-#define WEIGAND_WAIT_TIME 3000
+// Frame is complete after this much real elapsed silence between Wiegand pulses.
+#define WIEGAND_FRAME_GAP_MS 25
 
 // stores all of the data bits
 volatile unsigned char databits[MAX_BITS];
@@ -43,8 +43,9 @@ unsigned int lastWrittenBitCount = 0;
 // goes low when data is currently being captured
 volatile unsigned char flagDone;
 
-// countdown until we assume there are no more bits
-volatile unsigned int weigandCounter;
+// Frame timing is tracked from loop(), not from inside the interrupt handlers.
+unsigned int lastObservedBitCount = 0;
+unsigned long lastWiegandBitChangeMs = 0;
 
 // Display screen timer
 unsigned long displayTimeout = 30000; // 30 seconds
@@ -132,8 +133,6 @@ void ISR_INT0()
   }
 
   flagDone = 0;
-  // Reset the wait timer
-  weigandCounter = WEIGAND_WAIT_TIME;
 }
 
 // interrupt that happens when INT1 goes low (1 bit)
@@ -157,8 +156,6 @@ void ISR_INT1()
   }
 
   flagDone = 0;
-  // Reset the wait timer
-  weigandCounter = WEIGAND_WAIT_TIME;
 }
 
 void saveSettingsToPreferences()
@@ -1155,7 +1152,9 @@ void setup()
   attachInterrupt(DATA0, ISR_INT0, FALLING);
   attachInterrupt(DATA1, ISR_INT1, FALLING);
 
-  weigandCounter = WEIGAND_WAIT_TIME;
+  flagDone = 1;
+  lastObservedBitCount = bitCount;
+  lastWiegandBitChangeMs = millis();
   for (unsigned char i = 0; i < MAX_BITS; i++)
   {
     lastWrittenDatabits[i] = 0;
@@ -1190,10 +1189,29 @@ void setup()
 void loop() {
   updateDisplay();
 
-  // Check if the card reader is still receiving data
-  if (!flagDone) {
-    if (--weigandCounter == 0) {
-      flagDone = 1;  // No more data expected
+  // Observe capture progress from the main loop. Each newly observed bit
+  // restarts a real elapsed-time silence window without doing clock work in
+  // the interrupt handlers.
+  unsigned int observedBitCount = bitCount;
+  if (observedBitCount != lastObservedBitCount) {
+    lastObservedBitCount = observedBitCount;
+    lastWiegandBitChangeMs = millis();
+  }
+
+  // A frame is complete only after the bit count has remained unchanged for
+  // the configured silence period. Re-check atomically before setting
+  // flagDone so a pulse arriving at the boundary cannot finish the frame early.
+  if (!flagDone && observedBitCount > 0 &&
+      (millis() - lastWiegandBitChangeMs >= WIEGAND_FRAME_GAP_MS)) {
+    bool frameCompleted = false;
+    noInterrupts();
+    if (!flagDone && bitCount == lastObservedBitCount) {
+      flagDone = 1;
+      frameCompleted = true;
+    }
+    interrupts();
+
+    if (frameCompleted && flagDone) {
       Serial.println("Weigand transmission complete.");
     }
   }
