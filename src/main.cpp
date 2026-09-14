@@ -25,7 +25,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 9,
       "cardNumberStart": 10,
-      "cardNumberEnd": 25
+      "cardNumberEnd": 25,
+      "id": "hid-h10301-26"
     },
     {
       "description": "DoorSim 27-bit legacy mapping",
@@ -33,7 +34,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
       "cardNumberStart": 14,
-      "cardNumberEnd": 27
+      "cardNumberEnd": 27,
+      "id": "doorsim-27-legacy"
     },
     {
       "description": "2804 Wiegand 28-bit",
@@ -117,7 +119,8 @@ const char defaultWiegandFormatsJson[] = R"json({
             27
           ]
         }
-      ]
+      ],
+      "id": "wiegand-2804-28"
     },
     {
       "description": "DoorSim 29-bit legacy mapping",
@@ -125,7 +128,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
       "cardNumberStart": 14,
-      "cardNumberEnd": 29
+      "cardNumberEnd": 29,
+      "id": "doorsim-29-legacy"
     },
     {
       "description": "ATS Wiegand 30-bit",
@@ -133,7 +137,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
       "cardNumberStart": 14,
-      "cardNumberEnd": 29
+      "cardNumberEnd": 29,
+      "id": "ats-30"
     },
     {
       "description": "HID ADT 31-bit",
@@ -141,7 +146,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 5,
       "cardNumberStart": 6,
-      "cardNumberEnd": 28
+      "cardNumberEnd": 28,
+      "id": "hid-adt-31"
     },
     {
       "description": "DoorSim 32-bit legacy mapping",
@@ -149,7 +155,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 6,
       "facilityCodeEnd": 16,
       "cardNumberStart": 18,
-      "cardNumberEnd": 32
+      "cardNumberEnd": 32,
+      "id": "doorsim-32-legacy"
     },
     {
       "description": "HID D10202 33-bit",
@@ -157,7 +164,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 8,
       "cardNumberStart": 9,
-      "cardNumberEnd": 32
+      "cardNumberEnd": 32,
+      "id": "hid-d10202-33"
     },
     {
       "description": "HID H10306 34-bit",
@@ -165,7 +173,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 2,
       "facilityCodeEnd": 17,
       "cardNumberStart": 18,
-      "cardNumberEnd": 33
+      "cardNumberEnd": 33,
+      "id": "hid-h10306-34"
     },
     {
       "description": "HID Corporate 1000 35-bit",
@@ -271,7 +280,8 @@ const char defaultWiegandFormatsJson[] = R"json({
             34
           ]
         }
-      ]
+      ],
+      "id": "hid-c1k35"
     },
     {
       "description": "DoorSim 36-bit legacy mapping",
@@ -279,7 +289,8 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 22,
       "facilityCodeEnd": 33,
       "cardNumberStart": 2,
-      "cardNumberEnd": 17
+      "cardNumberEnd": 17,
+      "id": "doorsim-36-legacy"
     },
     {
       "description": "HID Corporate 1000 48-bit",
@@ -414,7 +425,8 @@ const char defaultWiegandFormatsJson[] = R"json({
             47
           ]
         }
-      ]
+      ],
+      "id": "hid-c1k48"
     }
   ]
 })json";
@@ -509,6 +521,12 @@ int validCount = 0;
 const int MAX_WIEGAND_FORMATS = 32;
 WiegandFormat wiegandFormats[MAX_WIEGAND_FORMATS];
 int wiegandFormatCount = 0;
+
+// Selection state for the current captured frame. A bit length can map to more
+// than one Wiegand format, so decoding and display must use the same candidate.
+const WiegandFormat *activeWiegandFormat = nullptr;
+unsigned int activeWiegandCandidateCount = 0;
+unsigned int activeWiegandViableCount = 0;
 
 // maximum number of stored cards
 const int MAX_CARDS = 100;
@@ -918,7 +936,36 @@ bool validateWiegandParity(const WiegandFormat *format)
 
 void printCardData()
 {
-  if (MODE == "CTF")
+  bool unresolvedFormat =
+      activeWiegandCandidateCount > 1 && activeWiegandFormat == nullptr;
+
+  if (unresolvedFormat)
+  {
+    Serial.print("[*] Wiegand format candidates: ");
+    Serial.println(activeWiegandCandidateCount);
+    Serial.print("[*] Viable after parity: ");
+    Serial.println(activeWiegandViableCount);
+    Serial.println(activeWiegandViableCount == 0
+                       ? "[*] No candidate passed parity."
+                       : "[*] Multiple Wiegand formats remain viable.");
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Card Read: ");
+    lcd.setCursor(11, 0);
+    lcd.print(bitCount);
+    lcd.print("bits");
+    lcd.setCursor(0, 1);
+    lcd.print(activeWiegandViableCount == 0 ? "No format match" : "Ambiguous format");
+    lcd.setCursor(0, 3);
+    lcd.print("Hex: ");
+    hexCardData.toUpperCase();
+    lcd.print(hexCardData);
+
+    status = activeWiegandViableCount == 0 ? "No format match" : "Ambiguous";
+    details = "Hex: " + hexCardData;
+  }
+  else if (MODE == "CTF")
   {
     const Credential *result = checkCredential(facilityCode, cardNumber);
     if (result != nullptr)
@@ -973,10 +1020,8 @@ void printCardData()
       Serial.print("[*] Raw: ");
       Serial.println(rawCardData);
 
-      const WiegandFormat *format = findWiegandFormat(bitCount);
-      if (format != nullptr &&
-          (format->parityRuleCount > 0 ||
-           (format->parityEvenBit > 0 && format->parityOddBit > 0)))
+      const WiegandFormat *format = activeWiegandFormat;
+      if (wiegandFormatHasParity(format))
       {
         Serial.print("[*] Wiegand parity: ");
         Serial.println(validateWiegandParity(format) ? "OK" : "BAD");
@@ -995,9 +1040,7 @@ void printCardData()
       lcd.setCursor(9, 1);
       lcd.print(" CN: ");
       lcd.print(cardNumber);
-      if (format != nullptr &&
-          (format->parityRuleCount > 0 ||
-           (format->parityEvenBit > 0 && format->parityOddBit > 0)))
+      if (wiegandFormatHasParity(format))
       {
         lcd.setCursor(0, 2);
         lcd.print("Parity: ");
@@ -1077,16 +1120,79 @@ void loadWiegandFormats()
     JsonArray defaultFormats = defaultsDoc["wiegandFormats"].as<JsonArray>();
     bool changed = false;
 
+    struct WiegandFormatAlias
+    {
+      const char *oldDescription;
+      const char *newDescription;
+    };
+
+    static const WiegandFormatAlias formatAliases[] = {
+        {"DoorSim 26-bit legacy mapping", "HID H10301 26-bit"},
+        {"DoorSim 30-bit legacy mapping", "ATS Wiegand 30-bit"},
+        {"DoorSim 31-bit legacy mapping", "HID ADT 31-bit"},
+        {"DoorSim 33-bit legacy mapping", "HID D10202 33-bit"},
+        {"DoorSim 34-bit legacy mapping", "HID H10306 34-bit"},
+        {"DoorSim 35-bit legacy mapping", "HID Corporate 1000 35-bit"}};
+
+    // Normalize known built-in renames before default migration. If a failed
+    // prior migration left both old and canonical names in LittleFS, keep the
+    // canonical entry and remove the obsolete alias. This does not touch
+    // unrelated user-defined formats that merely share the same bit length.
+    for (const WiegandFormatAlias &alias : formatAliases)
+    {
+      int oldIndex = -1;
+      int newIndex = -1;
+
+      for (unsigned int i = 0; i < formats.size(); i++)
+      {
+        JsonObject item = formats[i].as<JsonObject>();
+        String description = item["description"] | "";
+        if (description == alias.oldDescription)
+        {
+          oldIndex = i;
+        }
+        else if (description == alias.newDescription)
+        {
+          newIndex = i;
+        }
+      }
+
+      if (oldIndex >= 0 && newIndex >= 0)
+      {
+        formats.remove(oldIndex);
+        changed = true;
+      }
+      else if (oldIndex >= 0)
+      {
+        JsonObject item = formats[oldIndex].as<JsonObject>();
+        item["description"] = alias.newDescription;
+        changed = true;
+      }
+    }
+
     for (JsonObject defaultFormat : defaultFormats)
     {
-      unsigned int defaultBits = defaultFormat["bitCount"] | 0;
+      const char *defaultId = defaultFormat["id"] | "";
+      String defaultDescription = defaultFormat["description"] | "";
       bool found = false;
 
       for (JsonObject existingFormat : formats)
       {
-        if ((existingFormat["bitCount"] | 0) == defaultBits)
+        const char *existingId = existingFormat["id"] | "";
+        String existingDescription = existingFormat["description"] | "";
+        bool sameFormat =
+            (strlen(existingId) > 0 && strcmp(existingId, defaultId) == 0) ||
+            (strlen(existingId) == 0 && existingDescription == defaultDescription);
+
+        if (sameFormat)
         {
           found = true;
+
+          if (strlen(existingId) == 0)
+          {
+            existingFormat["id"] = defaultId;
+            changed = true;
+          }
 
           if (existingFormat["parityRules"].isNull() &&
               !defaultFormat["parityRules"].isNull())
@@ -1095,7 +1201,8 @@ void loadWiegandFormats()
             changed = true;
           }
 
-          if (defaultBits == 28 && !defaultFormat["parityRules"].isNull())
+          if (strcmp(defaultId, "wiegand-2804-28") == 0 &&
+              !defaultFormat["parityRules"].isNull())
           {
             const char *legacyParityFields[] = {
                 "parityEvenBit",
@@ -1151,7 +1258,7 @@ void loadWiegandFormats()
 
   struct BuiltInParity
   {
-    unsigned int bitCount;
+    const char *id;
     unsigned int evenBit;
     unsigned int evenStart;
     unsigned int evenEnd;
@@ -1161,17 +1268,18 @@ void loadWiegandFormats()
   };
 
   static const BuiltInParity builtInParity[] = {
-      {26, 1, 2, 13, 26, 14, 25},
-      {30, 1, 2, 13, 30, 14, 29},
-      {33, 1, 2, 17, 33, 17, 32},
-      {34, 1, 2, 17, 34, 18, 33}};
+      {"hid-h10301-26", 1, 2, 13, 26, 14, 25},
+      {"ats-30", 1, 2, 13, 30, 14, 29},
+      {"hid-d10202-33", 1, 2, 17, 33, 17, 32},
+      {"hid-h10306-34", 1, 2, 17, 34, 18, 33}};
 
   bool parityMetadataChanged = false;
   for (const BuiltInParity &parity : builtInParity)
   {
     for (JsonObject item : formats)
     {
-      if ((item["bitCount"] | 0) != parity.bitCount)
+      const char *itemId = item["id"] | "";
+      if (strcmp(itemId, parity.id) != 0)
       {
         continue;
       }
@@ -1210,6 +1318,7 @@ void loadWiegandFormats()
     }
 
     WiegandFormat format = {};
+    String id = item["id"] | "";
     String description = item["description"] | "";
     format.bitCount = item["bitCount"] | 0;
     format.facilityCodeStart = item["facilityCodeStart"] | 0;
@@ -1292,6 +1401,7 @@ void loadWiegandFormats()
          format.parityOddEnd <= format.bitCount);
 
     bool valid =
+        id.length() > 0 &&
         format.bitCount > 0 &&
         format.bitCount <= MAX_BITS &&
         format.facilityCodeStart > 0 &&
@@ -1310,6 +1420,8 @@ void loadWiegandFormats()
       continue;
     }
 
+    strncpy(format.id, id.c_str(), sizeof(format.id) - 1);
+    format.id[sizeof(format.id) - 1] = '\0';
     strncpy(format.description, description.c_str(), sizeof(format.description) - 1);
     format.description[sizeof(format.description) - 1] = '\0';
     wiegandFormats[wiegandFormatCount] = format;
@@ -1320,17 +1432,71 @@ void loadWiegandFormats()
   Serial.println(wiegandFormatCount);
 }
 
-const WiegandFormat *findWiegandFormat(unsigned int bits)
+bool wiegandFormatHasParity(const WiegandFormat *format)
 {
+  return format != nullptr &&
+         (format->parityRuleCount > 0 ||
+          (format->parityEvenBit > 0 && format->parityOddBit > 0));
+}
+
+const WiegandFormat *selectWiegandFormat(unsigned int bits,
+                                         unsigned int *candidateCount,
+                                         unsigned int *viableCount)
+{
+  unsigned int matches = 0;
+  unsigned int viable = 0;
+  const WiegandFormat *onlyMatch = nullptr;
+  const WiegandFormat *onlyViable = nullptr;
+
   for (int i = 0; i < wiegandFormatCount; i++)
   {
-    if (wiegandFormats[i].bitCount == bits)
+    const WiegandFormat *format = &wiegandFormats[i];
+    if (format->bitCount != bits)
     {
-      return &wiegandFormats[i];
+      continue;
+    }
+
+    matches++;
+    onlyMatch = format;
+  }
+
+  // Preserve existing behavior when only one format is configured for this
+  // bit length. Bad parity remains a diagnostic instead of blocking decode.
+  if (matches == 1)
+  {
+    viable = 1;
+    onlyViable = onlyMatch;
+  }
+  else if (matches > 1)
+  {
+    for (int i = 0; i < wiegandFormatCount; i++)
+    {
+      const WiegandFormat *format = &wiegandFormats[i];
+      if (format->bitCount != bits)
+      {
+        continue;
+      }
+
+      // A parity-less candidate cannot be eliminated by parity. A candidate
+      // with parity metadata remains viable only when its parity validates.
+      if (!wiegandFormatHasParity(format) || validateWiegandParity(format))
+      {
+        viable++;
+        onlyViable = format;
+      }
     }
   }
 
-  return nullptr;
+  if (candidateCount != nullptr)
+  {
+    *candidateCount = matches;
+  }
+  if (viableCount != nullptr)
+  {
+    *viableCount = viable;
+  }
+
+  return viable == 1 ? onlyViable : nullptr;
 }
 
 unsigned long decodeHIDFacilityCode(unsigned int start, unsigned int end)
@@ -1391,31 +1557,57 @@ String rawBitsToHex()
   return out;
 }
 
-void processHIDCard()
+bool processHIDCard()
 {
-  const WiegandFormat *format = findWiegandFormat(bitCount);
-  if (format == nullptr)
+  activeWiegandFormat =
+      selectWiegandFormat(bitCount,
+                          &activeWiegandCandidateCount,
+                          &activeWiegandViableCount);
+
+  if (activeWiegandFormat == nullptr)
   {
-    Serial.println("[-] Unsupported bitCount for Wiegand card");
-    return;
+    if (activeWiegandCandidateCount == 0)
+    {
+      Serial.println("[-] Unsupported bitCount for Wiegand card");
+    }
+    else
+    {
+      Serial.print("[*] Wiegand format selection unresolved: ");
+      Serial.print(activeWiegandCandidateCount);
+      Serial.print(" candidates, ");
+      Serial.print(activeWiegandViableCount);
+      Serial.println(" viable after parity.");
+    }
+    return false;
   }
 
   Serial.print("[*] Bit length: ");
   Serial.println(bitCount);
   Serial.print("[*] Wiegand format: ");
-  Serial.println(format->description);
+  Serial.println(activeWiegandFormat->description);
 
   // Format files use human-readable, 1-based inclusive bit positions.
   // The existing decode helpers use 0-based start / exclusive end indices.
   facilityCode =
-      decodeHIDFacilityCode(format->facilityCodeStart - 1, format->facilityCodeEnd);
+      decodeHIDFacilityCode(activeWiegandFormat->facilityCodeStart - 1,
+                            activeWiegandFormat->facilityCodeEnd);
   cardNumber =
-      decodeHIDCardNumber(format->cardNumberStart - 1, format->cardNumberEnd);
+      decodeHIDCardNumber(activeWiegandFormat->cardNumberStart - 1,
+                          activeWiegandFormat->cardNumberEnd);
+  return true;
 }
 
 bool isSupportedWiegandBitCount(unsigned int bits)
 {
-  return findWiegandFormat(bits) != nullptr;
+  for (int i = 0; i < wiegandFormatCount; i++)
+  {
+    if (wiegandFormats[i].bitCount == bits)
+    {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void processCardData()
@@ -1432,6 +1624,10 @@ void processCardData()
   Serial.println(rawCardData);
   Serial.print("[*] bitCount: ");
   Serial.println(bitCount);
+
+  activeWiegandFormat = nullptr;
+  activeWiegandCandidateCount = 0;
+  activeWiegandViableCount = 0;
 
   if (isSupportedWiegandBitCount(bitCount))
   {
@@ -1461,6 +1657,9 @@ void cleanupCardData()
   bitCount = 0;
   facilityCode = 0;
   cardNumber = 0;
+  activeWiegandFormat = nullptr;
+  activeWiegandCandidateCount = 0;
+  activeWiegandViableCount = 0;
   status = "";
   details = "";
 }

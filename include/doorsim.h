@@ -33,6 +33,7 @@ struct WiegandParityRule
 
 struct WiegandFormat
 {
+    char id[40];
     char description[48];
     unsigned int bitCount;
     unsigned int facilityCodeStart;
@@ -56,7 +57,10 @@ void loadSettingsFromPreferences();
 void saveCredentialsToPreferences();
 void loadCredentialsFromPreferences();
 void loadWiegandFormats();
-const WiegandFormat *findWiegandFormat(unsigned int bits);
+bool wiegandFormatHasParity(const WiegandFormat *format);
+const WiegandFormat *selectWiegandFormat(unsigned int bits,
+                                         unsigned int *candidateCount,
+                                         unsigned int *viableCount);
 const Credential *checkCredential(unsigned long fc, unsigned long cn);
 bool validateWiegandParity(const WiegandFormat *format);
 void ledOnValid();
@@ -66,7 +70,7 @@ void speakerOnFailure();
 void printCardData();
 unsigned long decodeHIDFacilityCode(unsigned int start, unsigned int end);
 unsigned long decodeHIDCardNumber(unsigned int start, unsigned int end);
-void processHIDCard();
+bool processHIDCard();
 void processCardData();
 void clearDatabits();
 void cleanupCardData();

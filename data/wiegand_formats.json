@@ -12,7 +12,8 @@
       "parityEvenEnd": 13,
       "parityOddBit": 26,
       "parityOddStart": 14,
-      "parityOddEnd": 25
+      "parityOddEnd": 25,
+      "id": "hid-h10301-26"
     },
     {
       "description": "DoorSim 27-bit legacy mapping",
@@ -20,7 +21,8 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
       "cardNumberStart": 14,
-      "cardNumberEnd": 27
+      "cardNumberEnd": 27,
+      "id": "doorsim-27-legacy"
     },
     {
       "description": "2804 Wiegand 28-bit",
@@ -104,7 +106,8 @@
             27
           ]
         }
-      ]
+      ],
+      "id": "wiegand-2804-28"
     },
     {
       "description": "DoorSim 29-bit legacy mapping",
@@ -112,7 +115,8 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
       "cardNumberStart": 14,
-      "cardNumberEnd": 29
+      "cardNumberEnd": 29,
+      "id": "doorsim-29-legacy"
     },
     {
       "description": "ATS Wiegand 30-bit",
@@ -126,7 +130,8 @@
       "parityEvenEnd": 13,
       "parityOddBit": 30,
       "parityOddStart": 14,
-      "parityOddEnd": 29
+      "parityOddEnd": 29,
+      "id": "ats-30"
     },
     {
       "description": "HID ADT 31-bit",
@@ -134,7 +139,8 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 5,
       "cardNumberStart": 6,
-      "cardNumberEnd": 28
+      "cardNumberEnd": 28,
+      "id": "hid-adt-31"
     },
     {
       "description": "DoorSim 32-bit legacy mapping",
@@ -142,7 +148,8 @@
       "facilityCodeStart": 6,
       "facilityCodeEnd": 16,
       "cardNumberStart": 18,
-      "cardNumberEnd": 32
+      "cardNumberEnd": 32,
+      "id": "doorsim-32-legacy"
     },
     {
       "description": "HID D10202 33-bit",
@@ -156,7 +163,8 @@
       "parityEvenEnd": 17,
       "parityOddBit": 33,
       "parityOddStart": 17,
-      "parityOddEnd": 32
+      "parityOddEnd": 32,
+      "id": "hid-d10202-33"
     },
     {
       "description": "HID H10306 34-bit",
@@ -170,7 +178,8 @@
       "parityEvenEnd": 17,
       "parityOddBit": 34,
       "parityOddStart": 18,
-      "parityOddEnd": 33
+      "parityOddEnd": 33,
+      "id": "hid-h10306-34"
     },
     {
       "description": "HID Corporate 1000 35-bit",
@@ -276,7 +285,8 @@
             34
           ]
         }
-      ]
+      ],
+      "id": "hid-c1k35"
     },
     {
       "description": "DoorSim 36-bit legacy mapping",
@@ -284,7 +294,8 @@
       "facilityCodeStart": 22,
       "facilityCodeEnd": 33,
       "cardNumberStart": 2,
-      "cardNumberEnd": 17
+      "cardNumberEnd": 17,
+      "id": "doorsim-36-legacy"
     },
     {
       "description": "HID Corporate 1000 48-bit",
@@ -419,7 +430,8 @@
             47
           ]
         }
-      ]
+      ],
+      "id": "hid-c1k48"
     }
   ]
 }
