@@ -561,27 +561,29 @@ void speakerOnFailure()
   }
 }
 
-bool validateWiegand26Parity()
+bool validateWiegandParity(const WiegandFormat *format)
 {
-  if (bitCount != 26)
+  if (format == nullptr || bitCount != format->bitCount ||
+      format->parityEvenBit == 0 || format->parityOddBit == 0 ||
+      format->parityEvenStart == 0 || format->parityEvenEnd == 0 ||
+      format->parityOddStart == 0 || format->parityOddEnd == 0)
   {
     return false;
   }
 
-  unsigned int firstHalfOnes = databits[0];
-  for (unsigned int i = 1; i <= 12; i++)
+  unsigned int evenOnes = databits[format->parityEvenBit - 1];
+  for (unsigned int i = format->parityEvenStart; i <= format->parityEvenEnd; i++)
   {
-    firstHalfOnes += databits[i];
+    evenOnes += databits[i - 1];
   }
 
-  unsigned int secondHalfOnes = databits[25];
-  for (unsigned int i = 13; i <= 24; i++)
+  unsigned int oddOnes = databits[format->parityOddBit - 1];
+  for (unsigned int i = format->parityOddStart; i <= format->parityOddEnd; i++)
   {
-    secondHalfOnes += databits[i];
+    oddOnes += databits[i - 1];
   }
 
-  // Standard Wiegand-26: leading parity is even, trailing parity is odd.
-  return ((firstHalfOnes % 2) == 0) && ((secondHalfOnes % 2) == 1);
+  return ((evenOnes % 2) == 0) && ((oddOnes % 2) == 1);
 }
 
 void printCardData()
@@ -641,10 +643,11 @@ void printCardData()
       Serial.print("[*] Raw: ");
       Serial.println(rawCardData);
 
-      if (bitCount == 26)
+      const WiegandFormat *format = findWiegandFormat(bitCount);
+      if (format != nullptr && format->parityEvenBit > 0 && format->parityOddBit > 0)
       {
-        Serial.print("[*] Wiegand-26 parity: ");
-        Serial.println(validateWiegand26Parity() ? "OK" : "BAD");
+        Serial.print("[*] Wiegand parity: ");
+        Serial.println(validateWiegandParity(format) ? "OK" : "BAD");
       }
 
       // LCD Printing
@@ -660,11 +663,11 @@ void printCardData()
       lcd.setCursor(9, 1);
       lcd.print(" CN: ");
       lcd.print(cardNumber);
-      if (bitCount == 26)
+      if (format != nullptr && format->parityEvenBit > 0 && format->parityOddBit > 0)
       {
         lcd.setCursor(0, 2);
         lcd.print("Parity: ");
-        lcd.print(validateWiegand26Parity() ? "OK" : "BAD");
+        lcd.print(validateWiegandParity(format) ? "OK" : "BAD");
       }
       lcd.setCursor(0, 3);
       lcd.print("Hex: ");
@@ -783,6 +786,60 @@ void loadWiegandFormats()
   }
 
   JsonArray formats = doc["wiegandFormats"].as<JsonArray>();
+
+  struct BuiltInParity
+  {
+    unsigned int bitCount;
+    unsigned int evenBit;
+    unsigned int evenStart;
+    unsigned int evenEnd;
+    unsigned int oddBit;
+    unsigned int oddStart;
+    unsigned int oddEnd;
+  };
+
+  static const BuiltInParity builtInParity[] = {
+      {26, 1, 2, 13, 26, 14, 25},
+      {28, 1, 2, 14, 28, 1, 27},
+      {30, 1, 2, 13, 30, 14, 29},
+      {33, 1, 2, 17, 33, 17, 32},
+      {34, 1, 2, 17, 34, 18, 33}};
+
+  bool parityMetadataChanged = false;
+  for (const BuiltInParity &parity : builtInParity)
+  {
+    for (JsonObject item : formats)
+    {
+      if ((item["bitCount"] | 0) != parity.bitCount)
+      {
+        continue;
+      }
+
+      if (item["parityEvenBit"].isNull()) { item["parityEvenBit"] = parity.evenBit; parityMetadataChanged = true; }
+      if (item["parityEvenStart"].isNull()) { item["parityEvenStart"] = parity.evenStart; parityMetadataChanged = true; }
+      if (item["parityEvenEnd"].isNull()) { item["parityEvenEnd"] = parity.evenEnd; parityMetadataChanged = true; }
+      if (item["parityOddBit"].isNull()) { item["parityOddBit"] = parity.oddBit; parityMetadataChanged = true; }
+      if (item["parityOddStart"].isNull()) { item["parityOddStart"] = parity.oddStart; parityMetadataChanged = true; }
+      if (item["parityOddEnd"].isNull()) { item["parityOddEnd"] = parity.oddEnd; parityMetadataChanged = true; }
+      break;
+    }
+  }
+
+  if (parityMetadataChanged)
+  {
+    File updatedFile = LittleFS.open(wiegandFormatsFile, "w");
+    if (updatedFile)
+    {
+      serializeJsonPretty(doc, updatedFile);
+      updatedFile.close();
+      Serial.println("Added missing Wiegand parity metadata.");
+    }
+    else
+    {
+      Serial.println("Failed to update Wiegand parity metadata.");
+    }
+  }
+
   for (JsonObject item : formats)
   {
     if (wiegandFormatCount >= MAX_WIEGAND_FORMATS)
@@ -798,6 +855,28 @@ void loadWiegandFormats()
     format.facilityCodeEnd = item["facilityCodeEnd"] | 0;
     format.cardNumberStart = item["cardNumberStart"] | 0;
     format.cardNumberEnd = item["cardNumberEnd"] | 0;
+    format.parityEvenBit = item["parityEvenBit"] | 0;
+    format.parityEvenStart = item["parityEvenStart"] | 0;
+    format.parityEvenEnd = item["parityEvenEnd"] | 0;
+    format.parityOddBit = item["parityOddBit"] | 0;
+    format.parityOddStart = item["parityOddStart"] | 0;
+    format.parityOddEnd = item["parityOddEnd"] | 0;
+
+    bool hasAnyParity =
+        format.parityEvenBit > 0 || format.parityEvenStart > 0 || format.parityEvenEnd > 0 ||
+        format.parityOddBit > 0 || format.parityOddStart > 0 || format.parityOddEnd > 0;
+    bool parityValid =
+        !hasAnyParity ||
+        (format.parityEvenBit > 0 &&
+         format.parityEvenBit <= format.bitCount &&
+         format.parityEvenStart > 0 &&
+         format.parityEvenEnd >= format.parityEvenStart &&
+         format.parityEvenEnd <= format.bitCount &&
+         format.parityOddBit > 0 &&
+         format.parityOddBit <= format.bitCount &&
+         format.parityOddStart > 0 &&
+         format.parityOddEnd >= format.parityOddStart &&
+         format.parityOddEnd <= format.bitCount);
 
     bool valid =
         format.bitCount > 0 &&
@@ -807,7 +886,8 @@ void loadWiegandFormats()
         format.facilityCodeEnd <= format.bitCount &&
         format.cardNumberStart > 0 &&
         format.cardNumberEnd >= format.cardNumberStart &&
-        format.cardNumberEnd <= format.bitCount;
+        format.cardNumberEnd <= format.bitCount &&
+        parityValid;
 
     if (!valid)
     {

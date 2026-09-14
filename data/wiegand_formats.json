@@ -6,7 +6,13 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 9,
       "cardNumberStart": 10,
-      "cardNumberEnd": 25
+      "cardNumberEnd": 25,
+      "parityEvenBit": 1,
+      "parityEvenStart": 2,
+      "parityEvenEnd": 13,
+      "parityOddBit": 26,
+      "parityOddStart": 14,
+      "parityOddEnd": 25
     },
     {
       "description": "DoorSim 27-bit legacy mapping",
@@ -22,7 +28,13 @@
       "facilityCodeStart": 5,
       "facilityCodeEnd": 12,
       "cardNumberStart": 13,
-      "cardNumberEnd": 27
+      "cardNumberEnd": 27,
+      "parityEvenBit": 1,
+      "parityEvenStart": 2,
+      "parityEvenEnd": 14,
+      "parityOddBit": 28,
+      "parityOddStart": 1,
+      "parityOddEnd": 27
     },
     {
       "description": "DoorSim 29-bit legacy mapping",
@@ -38,7 +50,13 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
       "cardNumberStart": 14,
-      "cardNumberEnd": 29
+      "cardNumberEnd": 29,
+      "parityEvenBit": 1,
+      "parityEvenStart": 2,
+      "parityEvenEnd": 13,
+      "parityOddBit": 30,
+      "parityOddStart": 14,
+      "parityOddEnd": 29
     },
     {
       "description": "HID ADT 31-bit",
@@ -62,7 +80,13 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 8,
       "cardNumberStart": 9,
-      "cardNumberEnd": 32
+      "cardNumberEnd": 32,
+      "parityEvenBit": 1,
+      "parityEvenStart": 2,
+      "parityEvenEnd": 17,
+      "parityOddBit": 33,
+      "parityOddStart": 17,
+      "parityOddEnd": 32
     },
     {
       "description": "HID H10306 34-bit",
@@ -70,7 +94,13 @@
       "facilityCodeStart": 2,
       "facilityCodeEnd": 17,
       "cardNumberStart": 18,
-      "cardNumberEnd": 33
+      "cardNumberEnd": 33,
+      "parityEvenBit": 1,
+      "parityEvenStart": 2,
+      "parityEvenEnd": 17,
+      "parityOddBit": 34,
+      "parityOddStart": 18,
+      "parityOddEnd": 33
     },
     {
       "description": "HID Corporate 1000 35-bit",

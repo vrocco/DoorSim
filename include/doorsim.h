@@ -30,6 +30,12 @@ struct WiegandFormat
     unsigned int facilityCodeEnd;
     unsigned int cardNumberStart;
     unsigned int cardNumberEnd;
+    unsigned int parityEvenBit;
+    unsigned int parityEvenStart;
+    unsigned int parityEvenEnd;
+    unsigned int parityOddBit;
+    unsigned int parityOddStart;
+    unsigned int parityOddEnd;
 };
 
 void ISR_INT0();
@@ -41,6 +47,7 @@ void loadCredentialsFromPreferences();
 void loadWiegandFormats();
 const WiegandFormat *findWiegandFormat(unsigned int bits);
 const Credential *checkCredential(unsigned long fc, unsigned long cn);
+bool validateWiegandParity(const WiegandFormat *format);
 void ledOnValid();
 void speakerOnValid();
 void lcdInvalidCredentials();
