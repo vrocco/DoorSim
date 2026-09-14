@@ -41,7 +41,83 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 5,
       "facilityCodeEnd": 12,
       "cardNumberStart": 13,
-      "cardNumberEnd": 27
+      "cardNumberEnd": 27,
+      "parityRules": [
+        {
+          "bit": 1,
+          "type": "even",
+          "bits": [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ]
+        },
+        {
+          "bit": 3,
+          "type": "odd",
+          "bits": [
+            5,
+            6,
+            8,
+            9,
+            11,
+            12,
+            14,
+            15,
+            17,
+            18,
+            20,
+            21,
+            23,
+            24,
+            26,
+            27
+          ]
+        },
+        {
+          "bit": 28,
+          "type": "odd",
+          "bits": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ]
+        }
+      ]
     },
     {
       "description": "DoorSim 29-bit legacy mapping",
@@ -1019,6 +1095,26 @@ void loadWiegandFormats()
             changed = true;
           }
 
+          if (defaultBits == 28 && !defaultFormat["parityRules"].isNull())
+          {
+            const char *legacyParityFields[] = {
+                "parityEvenBit",
+                "parityEvenStart",
+                "parityEvenEnd",
+                "parityOddBit",
+                "parityOddStart",
+                "parityOddEnd"};
+
+            for (const char *field : legacyParityFields)
+            {
+              if (!existingFormat[field].isNull())
+              {
+                existingFormat.remove(field);
+                changed = true;
+              }
+            }
+          }
+
           break;
         }
       }
@@ -1066,7 +1162,6 @@ void loadWiegandFormats()
 
   static const BuiltInParity builtInParity[] = {
       {26, 1, 2, 13, 26, 14, 25},
-      {28, 1, 2, 14, 28, 1, 27},
       {30, 1, 2, 13, 30, 14, 29},
       {33, 1, 2, 17, 33, 17, 32},
       {34, 1, 2, 17, 34, 18, 33}};
