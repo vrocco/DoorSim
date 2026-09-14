@@ -15,6 +15,92 @@ AsyncWebServer server(80);
 
 const char *settingsFile = "/settings.json";
 const char *credentialsFile = "/credentials.json";
+const char *wiegandFormatsFile = "/wiegand_formats.json";
+
+const char defaultWiegandFormatsJson[] = R"json({
+  "wiegandFormats": [
+    {
+      "description": "DoorSim 26-bit legacy mapping",
+      "bitCount": 26,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 9,
+      "cardNumberStart": 10,
+      "cardNumberEnd": 25
+    },
+    {
+      "description": "DoorSim 27-bit legacy mapping",
+      "bitCount": 27,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 13,
+      "cardNumberStart": 14,
+      "cardNumberEnd": 27
+    },
+    {
+      "description": "DoorSim 29-bit legacy mapping",
+      "bitCount": 29,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 13,
+      "cardNumberStart": 14,
+      "cardNumberEnd": 29
+    },
+    {
+      "description": "DoorSim 30-bit legacy mapping",
+      "bitCount": 30,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 13,
+      "cardNumberStart": 14,
+      "cardNumberEnd": 29
+    },
+    {
+      "description": "DoorSim 31-bit legacy mapping",
+      "bitCount": 31,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 5,
+      "cardNumberStart": 6,
+      "cardNumberEnd": 28
+    },
+    {
+      "description": "DoorSim 32-bit legacy mapping",
+      "bitCount": 32,
+      "facilityCodeStart": 6,
+      "facilityCodeEnd": 16,
+      "cardNumberStart": 18,
+      "cardNumberEnd": 32
+    },
+    {
+      "description": "DoorSim 33-bit legacy mapping",
+      "bitCount": 33,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 8,
+      "cardNumberStart": 9,
+      "cardNumberEnd": 32
+    },
+    {
+      "description": "DoorSim 34-bit legacy mapping",
+      "bitCount": 34,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 17,
+      "cardNumberStart": 18,
+      "cardNumberEnd": 33
+    },
+    {
+      "description": "DoorSim 35-bit legacy mapping",
+      "bitCount": 35,
+      "facilityCodeStart": 3,
+      "facilityCodeEnd": 14,
+      "cardNumberStart": 15,
+      "cardNumberEnd": 34
+    },
+    {
+      "description": "DoorSim 36-bit legacy mapping",
+      "bitCount": 36,
+      "facilityCodeStart": 22,
+      "facilityCodeEnd": 33,
+      "cardNumberStart": 2,
+      "cardNumberEnd": 17
+    }
+  ]
+})json";
 
 #define I2C_SDA 21
 #define I2C_SCL 22
@@ -102,6 +188,10 @@ String details;
 const int MAX_CREDENTIALS = 100;
 Credential credentials[MAX_CREDENTIALS];
 int validCount = 0;
+
+const int MAX_WIEGAND_FORMATS = 32;
+WiegandFormat wiegandFormats[MAX_WIEGAND_FORMATS];
+int wiegandFormatCount = 0;
 
 // maximum number of stored cards
 const int MAX_CARDS = 100;
@@ -590,6 +680,99 @@ void printCardData()
 }
 
 // Process hid cards
+void loadWiegandFormats()
+{
+  wiegandFormatCount = 0;
+
+  if (!LittleFS.exists(wiegandFormatsFile))
+  {
+    Serial.println("Wiegand format file does not exist. Creating defaults...");
+    File defaultFile = LittleFS.open(wiegandFormatsFile, "w");
+    if (!defaultFile)
+    {
+      Serial.println("Failed to create default Wiegand format file.");
+      return;
+    }
+
+    defaultFile.print(defaultWiegandFormatsJson);
+    defaultFile.close();
+  }
+
+  File file = LittleFS.open(wiegandFormatsFile, "r");
+  if (!file)
+  {
+    Serial.println("Failed to open Wiegand format file.");
+    return;
+  }
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, file);
+  file.close();
+
+  if (error)
+  {
+    Serial.print("Failed to parse Wiegand formats: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  JsonArray formats = doc["wiegandFormats"].as<JsonArray>();
+  for (JsonObject item : formats)
+  {
+    if (wiegandFormatCount >= MAX_WIEGAND_FORMATS)
+    {
+      Serial.println("Maximum Wiegand format count reached.");
+      break;
+    }
+
+    WiegandFormat format = {};
+    String description = item["description"] | "";
+    format.bitCount = item["bitCount"] | 0;
+    format.facilityCodeStart = item["facilityCodeStart"] | 0;
+    format.facilityCodeEnd = item["facilityCodeEnd"] | 0;
+    format.cardNumberStart = item["cardNumberStart"] | 0;
+    format.cardNumberEnd = item["cardNumberEnd"] | 0;
+
+    bool valid =
+        format.bitCount > 0 &&
+        format.bitCount <= MAX_BITS &&
+        format.facilityCodeStart > 0 &&
+        format.facilityCodeEnd >= format.facilityCodeStart &&
+        format.facilityCodeEnd <= format.bitCount &&
+        format.cardNumberStart > 0 &&
+        format.cardNumberEnd >= format.cardNumberStart &&
+        format.cardNumberEnd <= format.bitCount;
+
+    if (!valid)
+    {
+      Serial.print("Skipping invalid Wiegand format: ");
+      Serial.println(description);
+      continue;
+    }
+
+    strncpy(format.description, description.c_str(), sizeof(format.description) - 1);
+    format.description[sizeof(format.description) - 1] = '\0';
+    wiegandFormats[wiegandFormatCount] = format;
+    wiegandFormatCount++;
+  }
+
+  Serial.print("Loaded Wiegand formats: ");
+  Serial.println(wiegandFormatCount);
+}
+
+const WiegandFormat *findWiegandFormat(unsigned int bits)
+{
+  for (int i = 0; i < wiegandFormatCount; i++)
+  {
+    if (wiegandFormats[i].bitCount == bits)
+    {
+      return &wiegandFormats[i];
+    }
+  }
+
+  return nullptr;
+}
+
 unsigned long decodeHIDFacilityCode(unsigned int start, unsigned int end)
 {
   unsigned long HIDFacilityCode = 0;
@@ -650,90 +833,29 @@ String rawBitsToHex()
 
 void processHIDCard()
 {
-  // bits to be decoded differently depending on card format length
-  // see http://www.pagemac.com/projects/rfid/hid_data_formats for more info
-  // also specifically: www.brivo.com/app/static_data/js/calculate.js
+  const WiegandFormat *format = findWiegandFormat(bitCount);
+  if (format == nullptr)
+  {
+    Serial.println("[-] Unsupported bitCount for Wiegand card");
+    return;
+  }
 
   Serial.print("[*] Bit length: ");
   Serial.println(bitCount);
-  switch (bitCount)
-  {
-  case 26:
-    facilityCode = decodeHIDFacilityCode(1, 9);
-    cardNumber = decodeHIDCardNumber(9, 25);
-    break;
+  Serial.print("[*] Wiegand format: ");
+  Serial.println(format->description);
 
-  case 27:
-    facilityCode = decodeHIDFacilityCode(1, 13);
-    cardNumber = decodeHIDCardNumber(13, 27);
-    break;
-
-  case 29:
-    facilityCode = decodeHIDFacilityCode(1, 13);
-    cardNumber = decodeHIDCardNumber(13, 29);
-    break;
-
-  case 30:
-    facilityCode = decodeHIDFacilityCode(1, 13);
-    cardNumber = decodeHIDCardNumber(13, 29);
-    break;
-
-  case 31:
-    facilityCode = decodeHIDFacilityCode(1, 5);
-    cardNumber = decodeHIDCardNumber(5, 28);
-    break;
-
-  // modified to wiegand 32 bit format instead of HID
-  case 32:
-    facilityCode = decodeHIDFacilityCode(5, 16);
-    cardNumber = decodeHIDCardNumber(17, 32);
-    break;
-
-  case 33:
-    facilityCode = decodeHIDFacilityCode(1, 8);
-    cardNumber = decodeHIDCardNumber(8, 32);
-    break;
-
-  case 34:
-    facilityCode = decodeHIDFacilityCode(1, 17);
-    cardNumber = decodeHIDCardNumber(17, 33);
-    break;
-
-  case 35:
-    facilityCode = decodeHIDFacilityCode(2, 14);
-    cardNumber = decodeHIDCardNumber(14, 34);
-    break;
-
-  case 36:
-    facilityCode = decodeHIDFacilityCode(21, 33);
-    cardNumber = decodeHIDCardNumber(1, 17);
-    break;
-
-  default:
-    Serial.println("[-] Unsupported bitCount for HID card");
-    return;
-  }
+  // Format files use human-readable, 1-based inclusive bit positions.
+  // The existing decode helpers use 0-based start / exclusive end indices.
+  facilityCode =
+      decodeHIDFacilityCode(format->facilityCodeStart - 1, format->facilityCodeEnd);
+  cardNumber =
+      decodeHIDCardNumber(format->cardNumberStart - 1, format->cardNumberEnd);
 }
 
 bool isSupportedWiegandBitCount(unsigned int bits)
 {
-  switch (bits)
-  {
-  case 26:
-  case 27:
-  case 29:
-  case 30:
-  case 31:
-  case 32:
-  case 33:
-  case 34:
-  case 35:
-  case 36:
-    return true;
-
-  default:
-    return false;
-  }
+  return findWiegandFormat(bits) != nullptr;
 }
 
 void processCardData()
@@ -1084,6 +1206,7 @@ void setup()
     Serial.println("An Error has occurred while mounting LittleFS");
     return;
   }
+  loadWiegandFormats();
   loadSettingsFromPreferences();
   loadCredentialsFromPreferences();
 

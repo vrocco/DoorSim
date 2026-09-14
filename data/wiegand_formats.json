@@ -1,0 +1,84 @@
+{
+  "wiegandFormats": [
+    {
+      "description": "DoorSim 26-bit legacy mapping",
+      "bitCount": 26,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 9,
+      "cardNumberStart": 10,
+      "cardNumberEnd": 25
+    },
+    {
+      "description": "DoorSim 27-bit legacy mapping",
+      "bitCount": 27,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 13,
+      "cardNumberStart": 14,
+      "cardNumberEnd": 27
+    },
+    {
+      "description": "DoorSim 29-bit legacy mapping",
+      "bitCount": 29,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 13,
+      "cardNumberStart": 14,
+      "cardNumberEnd": 29
+    },
+    {
+      "description": "DoorSim 30-bit legacy mapping",
+      "bitCount": 30,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 13,
+      "cardNumberStart": 14,
+      "cardNumberEnd": 29
+    },
+    {
+      "description": "DoorSim 31-bit legacy mapping",
+      "bitCount": 31,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 5,
+      "cardNumberStart": 6,
+      "cardNumberEnd": 28
+    },
+    {
+      "description": "DoorSim 32-bit legacy mapping",
+      "bitCount": 32,
+      "facilityCodeStart": 6,
+      "facilityCodeEnd": 16,
+      "cardNumberStart": 18,
+      "cardNumberEnd": 32
+    },
+    {
+      "description": "DoorSim 33-bit legacy mapping",
+      "bitCount": 33,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 8,
+      "cardNumberStart": 9,
+      "cardNumberEnd": 32
+    },
+    {
+      "description": "DoorSim 34-bit legacy mapping",
+      "bitCount": 34,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 17,
+      "cardNumberStart": 18,
+      "cardNumberEnd": 33
+    },
+    {
+      "description": "DoorSim 35-bit legacy mapping",
+      "bitCount": 35,
+      "facilityCodeStart": 3,
+      "facilityCodeEnd": 14,
+      "cardNumberStart": 15,
+      "cardNumberEnd": 34
+    },
+    {
+      "description": "DoorSim 36-bit legacy mapping",
+      "bitCount": 36,
+      "facilityCodeStart": 22,
+      "facilityCodeEnd": 33,
+      "cardNumberStart": 2,
+      "cardNumberEnd": 17
+    }
+  ]
+}

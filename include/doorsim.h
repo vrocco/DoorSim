@@ -22,6 +22,15 @@ struct Credential
     char name[50];
 };
 
+struct WiegandFormat
+{
+    char description[48];
+    unsigned int bitCount;
+    unsigned int facilityCodeStart;
+    unsigned int facilityCodeEnd;
+    unsigned int cardNumberStart;
+    unsigned int cardNumberEnd;
+};
 
 void ISR_INT0();
 void ISR_INT1();
@@ -29,6 +38,8 @@ void saveSettingsToPreferences();
 void loadSettingsFromPreferences();
 void saveCredentialsToPreferences();
 void loadCredentialsFromPreferences();
+void loadWiegandFormats();
+const WiegandFormat *findWiegandFormat(unsigned int bits);
 const Credential *checkCredential(unsigned long fc, unsigned long cn);
 void ledOnValid();
 void speakerOnValid();
