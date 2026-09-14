@@ -13,9 +13,6 @@ struct CardData
     String rawCardData;
     String status;
     String details;
-    String formatName;
-    bool hasFormat;
-    int parityStatus;
 };
 
 struct Credential
@@ -25,22 +22,24 @@ struct Credential
     char name[50];
 };
 
+
 void ISR_INT0();
 void ISR_INT1();
 void saveSettingsToPreferences();
 void loadSettingsFromPreferences();
 void saveCredentialsToPreferences();
 void loadCredentialsFromPreferences();
-const Credential *checkCredential(unsigned long fc, unsigned long cn);
+const Credential *checkCredential(uint16_t fc, uint16_t cn);
 void ledOnValid();
 void speakerOnValid();
 void lcdInvalidCredentials();
 void speakerOnFailure();
 void printCardData();
-unsigned long decodeWiegandField(unsigned int start, unsigned int end);
-bool checkParityRange(unsigned int parityBit, unsigned int start, unsigned int end, bool expectOdd);
-String rawBitsToHex();
-void processWiegandCard();
+unsigned long decodeHIDFacilityCode(unsigned int start, unsigned int end);
+unsigned long decodeHIDCardNumber(unsigned int start, unsigned int end);
+void setCardChunkBits(unsigned int cardChunk1Offset, unsigned int bitHolderOffset, unsigned int cardChunk2Offset);
+String prefixPad(const String &in, const char c, const size_t len);
+void processHIDCard();
 void processCardData();
 void clearDatabits();
 void cleanupCardData();
