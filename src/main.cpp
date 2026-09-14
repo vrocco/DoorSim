@@ -97,7 +97,105 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 3,
       "facilityCodeEnd": 14,
       "cardNumberStart": 15,
-      "cardNumberEnd": 34
+      "cardNumberEnd": 34,
+      "parityRules": [
+        {
+          "bit": 34,
+          "type": "even",
+          "bits": [
+            2,
+            3,
+            5,
+            6,
+            8,
+            9,
+            11,
+            12,
+            14,
+            15,
+            17,
+            18,
+            20,
+            21,
+            23,
+            24,
+            26,
+            27,
+            29,
+            30,
+            32,
+            33
+          ]
+        },
+        {
+          "bit": 1,
+          "type": "odd",
+          "bits": [
+            3,
+            4,
+            6,
+            7,
+            9,
+            10,
+            12,
+            13,
+            15,
+            16,
+            18,
+            19,
+            21,
+            22,
+            24,
+            25,
+            27,
+            28,
+            30,
+            31,
+            33,
+            34
+          ]
+        },
+        {
+          "bit": 35,
+          "type": "odd",
+          "bits": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34
+          ]
+        }
+      ]
     },
     {
       "description": "DoorSim 36-bit legacy mapping",
@@ -113,7 +211,134 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeStart": 3,
       "facilityCodeEnd": 24,
       "cardNumberStart": 25,
-      "cardNumberEnd": 47
+      "cardNumberEnd": 47,
+      "parityRules": [
+        {
+          "bit": 47,
+          "type": "even",
+          "bits": [
+            2,
+            3,
+            5,
+            6,
+            8,
+            9,
+            11,
+            12,
+            14,
+            15,
+            17,
+            18,
+            20,
+            21,
+            23,
+            24,
+            26,
+            27,
+            29,
+            30,
+            32,
+            33,
+            35,
+            36,
+            38,
+            39,
+            41,
+            42,
+            44,
+            45
+          ]
+        },
+        {
+          "bit": 1,
+          "type": "odd",
+          "bits": [
+            3,
+            4,
+            6,
+            7,
+            9,
+            10,
+            12,
+            13,
+            15,
+            16,
+            18,
+            19,
+            21,
+            22,
+            24,
+            25,
+            27,
+            28,
+            30,
+            31,
+            33,
+            34,
+            36,
+            37,
+            39,
+            40,
+            42,
+            43,
+            45,
+            46
+          ]
+        },
+        {
+          "bit": 48,
+          "type": "odd",
+          "bits": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47
+          ]
+        }
+      ]
     }
   ]
 })json";
@@ -563,8 +788,37 @@ void speakerOnFailure()
 
 bool validateWiegandParity(const WiegandFormat *format)
 {
-  if (format == nullptr || bitCount != format->bitCount ||
-      format->parityEvenBit == 0 || format->parityOddBit == 0 ||
+  if (format == nullptr || bitCount != format->bitCount)
+  {
+    return false;
+  }
+
+  if (format->parityRuleCount > 0)
+  {
+    for (unsigned int ruleIndex = 0; ruleIndex < format->parityRuleCount; ruleIndex++)
+    {
+      const WiegandParityRule &rule = format->parityRules[ruleIndex];
+      unsigned int ones = databits[rule.bit - 1];
+
+      for (unsigned int bit = 1; bit <= format->bitCount && bit <= 64; bit++)
+      {
+        if ((rule.mask & (1ULL << (bit - 1))) != 0)
+        {
+          ones += databits[bit - 1];
+        }
+      }
+
+      bool valid = rule.even ? ((ones % 2) == 0) : ((ones % 2) == 1);
+      if (!valid)
+      {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  if (format->parityEvenBit == 0 || format->parityOddBit == 0 ||
       format->parityEvenStart == 0 || format->parityEvenEnd == 0 ||
       format->parityOddStart == 0 || format->parityOddEnd == 0)
   {
@@ -644,7 +898,9 @@ void printCardData()
       Serial.println(rawCardData);
 
       const WiegandFormat *format = findWiegandFormat(bitCount);
-      if (format != nullptr && format->parityEvenBit > 0 && format->parityOddBit > 0)
+      if (format != nullptr &&
+          (format->parityRuleCount > 0 ||
+           (format->parityEvenBit > 0 && format->parityOddBit > 0)))
       {
         Serial.print("[*] Wiegand parity: ");
         Serial.println(validateWiegandParity(format) ? "OK" : "BAD");
@@ -663,7 +919,9 @@ void printCardData()
       lcd.setCursor(9, 1);
       lcd.print(" CN: ");
       lcd.print(cardNumber);
-      if (format != nullptr && format->parityEvenBit > 0 && format->parityOddBit > 0)
+      if (format != nullptr &&
+          (format->parityRuleCount > 0 ||
+           (format->parityEvenBit > 0 && format->parityOddBit > 0)))
       {
         lcd.setCursor(0, 2);
         lcd.print("Parity: ");
@@ -753,6 +1011,14 @@ void loadWiegandFormats()
         if ((existingFormat["bitCount"] | 0) == defaultBits)
         {
           found = true;
+
+          if (existingFormat["parityRules"].isNull() &&
+              !defaultFormat["parityRules"].isNull())
+          {
+            existingFormat["parityRules"].set(defaultFormat["parityRules"]);
+            changed = true;
+          }
+
           break;
         }
       }
@@ -771,7 +1037,7 @@ void loadWiegandFormats()
       {
         serializeJsonPretty(doc, updatedFile);
         updatedFile.close();
-        Serial.println("Added missing built-in Wiegand formats.");
+        Serial.println("Updated built-in Wiegand format metadata.");
       }
       else
       {
@@ -862,6 +1128,58 @@ void loadWiegandFormats()
     format.parityOddStart = item["parityOddStart"] | 0;
     format.parityOddEnd = item["parityOddEnd"] | 0;
 
+    bool parityRulesValid = true;
+    JsonArray parityRules = item["parityRules"].as<JsonArray>();
+    if (!parityRules.isNull())
+    {
+      for (JsonObject ruleItem : parityRules)
+      {
+        if (format.parityRuleCount >= MAX_WIEGAND_PARITY_RULES)
+        {
+          parityRulesValid = false;
+          break;
+        }
+
+        unsigned int targetBit = ruleItem["bit"] | 0;
+        String parityType = ruleItem["type"] | "";
+        JsonArray ruleBits = ruleItem["bits"].as<JsonArray>();
+
+        if (targetBit == 0 || targetBit > format.bitCount || targetBit > 64 ||
+            (parityType != "even" && parityType != "odd") ||
+            ruleBits.isNull() || ruleBits.size() == 0)
+        {
+          parityRulesValid = false;
+          break;
+        }
+
+        uint64_t mask = 0;
+        for (JsonVariant bitValue : ruleBits)
+        {
+          unsigned int ruleBit = bitValue.as<unsigned int>();
+          if (ruleBit == 0 || ruleBit > format.bitCount || ruleBit > 64 ||
+              ruleBit == targetBit)
+          {
+            parityRulesValid = false;
+            break;
+          }
+
+          mask |= (1ULL << (ruleBit - 1));
+        }
+
+        if (!parityRulesValid || mask == 0)
+        {
+          parityRulesValid = false;
+          break;
+        }
+
+        WiegandParityRule &rule = format.parityRules[format.parityRuleCount];
+        rule.bit = targetBit;
+        rule.even = (parityType == "even");
+        rule.mask = mask;
+        format.parityRuleCount++;
+      }
+    }
+
     bool hasAnyParity =
         format.parityEvenBit > 0 || format.parityEvenStart > 0 || format.parityEvenEnd > 0 ||
         format.parityOddBit > 0 || format.parityOddStart > 0 || format.parityOddEnd > 0;
@@ -887,7 +1205,8 @@ void loadWiegandFormats()
         format.cardNumberStart > 0 &&
         format.cardNumberEnd >= format.cardNumberStart &&
         format.cardNumberEnd <= format.bitCount &&
-        parityValid;
+        parityValid &&
+        parityRulesValid;
 
     if (!valid)
     {

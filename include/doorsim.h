@@ -22,6 +22,15 @@ struct Credential
     char name[50];
 };
 
+const unsigned int MAX_WIEGAND_PARITY_RULES = 3;
+
+struct WiegandParityRule
+{
+    unsigned int bit;
+    bool even;
+    uint64_t mask;
+};
+
 struct WiegandFormat
 {
     char description[48];
@@ -36,6 +45,8 @@ struct WiegandFormat
     unsigned int parityOddBit;
     unsigned int parityOddStart;
     unsigned int parityOddEnd;
+    WiegandParityRule parityRules[MAX_WIEGAND_PARITY_RULES];
+    unsigned int parityRuleCount;
 };
 
 void ISR_INT0();
