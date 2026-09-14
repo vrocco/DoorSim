@@ -645,6 +645,44 @@ String prefixPad(const String &in, const char c, const size_t len)
   return out;
 }
 
+String rawBitsToHex()
+{
+  static const char hexDigits[] = "0123456789ABCDEF";
+  String out = "";
+
+  if (bitCount == 0)
+  {
+    return out;
+  }
+
+  // Pad on the left so the received bitstream aligns to complete hex nibbles.
+  // This preserves the numeric value while keeping every received bit intact.
+  unsigned int padBits = (4 - (bitCount % 4)) % 4;
+  unsigned char nibble = 0;
+  unsigned int nibbleBits = 0;
+
+  for (unsigned int i = 0; i < padBits + bitCount; i++)
+  {
+    unsigned char bit = 0;
+    if (i >= padBits)
+    {
+      bit = databits[i - padBits] ? 1 : 0;
+    }
+
+    nibble = (nibble << 1) | bit;
+    nibbleBits++;
+
+    if (nibbleBits == 4)
+    {
+      out += hexDigits[nibble];
+      nibble = 0;
+      nibbleBits = 0;
+    }
+  }
+
+  return out;
+}
+
 void processHIDCard()
 {
   // bits to be decoded differently depending on card format length
@@ -771,6 +809,10 @@ void processCardData()
   {
     processHIDCard();
   }
+
+  // Treat the captured Wiegand bitstream as authoritative for the hex value.
+  // The existing facility/card-number decoder remains unchanged for comparison.
+  hexCardData = rawBitsToHex();
 }
 
 void clearDatabits()
