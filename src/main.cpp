@@ -116,17 +116,22 @@ int cardDataIndex = 0;
 // Interrupts for card reader
 void ISR_INT0()
 {
-  bitCount++;
-  flagDone = 0;
+  if (bitCount < MAX_BITS)
+  {
+    databits[bitCount] = 0;
+    bitCount++;
 
-  if (bitCount < 23)
-  {
-    bitHolder1 = bitHolder1 << 1;
+    if (bitCount < 23)
+    {
+      bitHolder1 = bitHolder1 << 1;
+    }
+    else
+    {
+      bitHolder2 = bitHolder2 << 1;
+    }
   }
-  else
-  {
-    bitHolder2 = bitHolder2 << 1;
-  }
+
+  flagDone = 0;
   // Reset the wait timer
   weigandCounter = WEIGAND_WAIT_TIME;
 }
@@ -138,19 +143,20 @@ void ISR_INT1()
   {
     databits[bitCount] = 1;
     bitCount++;
-  }
-  flagDone = 0;
 
-  if (bitCount < 23)
-  {
-    bitHolder1 = bitHolder1 << 1;
-    bitHolder1 |= 1;
+    if (bitCount < 23)
+    {
+      bitHolder1 = bitHolder1 << 1;
+      bitHolder1 |= 1;
+    }
+    else
+    {
+      bitHolder2 = bitHolder2 << 1;
+      bitHolder2 |= 1;
+    }
   }
-  else
-  {
-    bitHolder2 = bitHolder2 << 1;
-    bitHolder2 |= 1;
-  }
+
+  flagDone = 0;
   // Reset the wait timer
   weigandCounter = WEIGAND_WAIT_TIME;
 }
