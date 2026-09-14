@@ -29,7 +29,7 @@ void saveSettingsToPreferences();
 void loadSettingsFromPreferences();
 void saveCredentialsToPreferences();
 void loadCredentialsFromPreferences();
-const Credential *checkCredential(uint16_t fc, uint16_t cn);
+const Credential *checkCredential(unsigned long fc, unsigned long cn);
 void ledOnValid();
 void speakerOnValid();
 void lcdInvalidCredentials();

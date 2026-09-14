@@ -371,7 +371,7 @@ void loadCredentialsFromPreferences()
 }
 
 // Check if credential is valid
-const Credential *checkCredential(uint16_t fc, uint16_t cn)
+const Credential *checkCredential(unsigned long fc, unsigned long cn)
 {
   for (unsigned int i = 0; i < validCount; i++)
   {
