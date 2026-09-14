@@ -37,8 +37,6 @@ void speakerOnFailure();
 void printCardData();
 unsigned long decodeHIDFacilityCode(unsigned int start, unsigned int end);
 unsigned long decodeHIDCardNumber(unsigned int start, unsigned int end);
-void setCardChunkBits(unsigned int cardChunk1Offset, unsigned int bitHolderOffset, unsigned int cardChunk2Offset);
-String prefixPad(const String &in, const char c, const size_t len);
 void processHIDCard();
 void processCardData();
 void clearDatabits();

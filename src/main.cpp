@@ -83,12 +83,6 @@ String rawCardData;
 String status;
 String details;
 
-// breaking up card value into 2 chunks to create 10 char HEX value
-volatile unsigned long bitHolder1 = 0;
-volatile unsigned long bitHolder2 = 0;
-unsigned long cardChunk1 = 0;
-unsigned long cardChunk2 = 0;
-
 // Define reader input pins
 // card reader DATA0
 #define DATA0 19
@@ -121,15 +115,6 @@ void ISR_INT0()
   {
     databits[bitCount] = 0;
     bitCount++;
-
-    if (bitCount < 23)
-    {
-      bitHolder1 = bitHolder1 << 1;
-    }
-    else
-    {
-      bitHolder2 = bitHolder2 << 1;
-    }
   }
 
   flagDone = 0;
@@ -142,17 +127,6 @@ void ISR_INT1()
   {
     databits[bitCount] = 1;
     bitCount++;
-
-    if (bitCount < 23)
-    {
-      bitHolder1 = bitHolder1 << 1;
-      bitHolder1 |= 1;
-    }
-    else
-    {
-      bitHolder2 = bitHolder2 << 1;
-      bitHolder2 |= 1;
-    }
   }
 
   flagDone = 0;
@@ -636,47 +610,6 @@ unsigned long decodeHIDCardNumber(unsigned int start, unsigned int end)
   return HIDCardNumber;
 }
 
-// Card value processing functions
-// Function to append the card value (bitHolder1 and bitHolder2) to the
-// necessary array then translate that to the two chunks for the card value that
-// will be output
-void setCardChunkBits(unsigned int cardChunk1Offset, unsigned int bitHolderOffset, unsigned int cardChunk2Offset)
-{
-  for (int i = 19; i >= 0; i--)
-  {
-    if (i == 13 || i == cardChunk1Offset)
-    {
-      bitWrite(cardChunk1, i, 1);
-    }
-    else if (i > cardChunk1Offset)
-    {
-      bitWrite(cardChunk1, i, 0);
-    }
-    else
-    {
-      bitWrite(cardChunk1, i, bitRead(bitHolder1, i + bitHolderOffset));
-    }
-    if (i < bitHolderOffset)
-    {
-      bitWrite(cardChunk2, i + cardChunk2Offset, bitRead(bitHolder1, i));
-    }
-    if (i < cardChunk2Offset)
-    {
-      bitWrite(cardChunk2, i, bitRead(bitHolder2, i));
-    }
-  }
-}
-
-String prefixPad(const String &in, const char c, const size_t len)
-{
-  String out = in;
-  while (out.length() < len)
-  {
-    out = c + out;
-  }
-  return out;
-}
-
 String rawBitsToHex()
 {
   static const char hexDigits[] = "0123456789ABCDEF";
@@ -720,12 +653,6 @@ void processHIDCard()
   // bits to be decoded differently depending on card format length
   // see http://www.pagemac.com/projects/rfid/hid_data_formats for more info
   // also specifically: www.brivo.com/app/static_data/js/calculate.js
-  // Example of full card value
-  // |>   preamble   <| |>   Actual card value   <|
-  // 000000100000000001 11 111000100000100100111000
-  // |> write to chunk1 <| |>  write to chunk2   <|
-
-  unsigned int cardChunk1Offset, bitHolderOffset, cardChunk2Offset;
 
   Serial.print("[*] Bit length: ");
   Serial.println(bitCount);
@@ -734,92 +661,58 @@ void processHIDCard()
   case 26:
     facilityCode = decodeHIDFacilityCode(1, 9);
     cardNumber = decodeHIDCardNumber(9, 25);
-    cardChunk1Offset = 2;
-    bitHolderOffset = 20;
-    cardChunk2Offset = 4;
     break;
 
   case 27:
     facilityCode = decodeHIDFacilityCode(1, 13);
     cardNumber = decodeHIDCardNumber(13, 27);
-    cardChunk1Offset = 3;
-    bitHolderOffset = 19;
-    cardChunk2Offset = 5;
     break;
 
   case 29:
     facilityCode = decodeHIDFacilityCode(1, 13);
     cardNumber = decodeHIDCardNumber(13, 29);
-    cardChunk1Offset = 5;
-    bitHolderOffset = 17;
-    cardChunk2Offset = 7;
     break;
 
   case 30:
     facilityCode = decodeHIDFacilityCode(1, 13);
     cardNumber = decodeHIDCardNumber(13, 29);
-    cardChunk1Offset = 6;
-    bitHolderOffset = 16;
-    cardChunk2Offset = 8;
     break;
 
   case 31:
     facilityCode = decodeHIDFacilityCode(1, 5);
     cardNumber = decodeHIDCardNumber(5, 28);
-    cardChunk1Offset = 7;
-    bitHolderOffset = 15;
-    cardChunk2Offset = 9;
     break;
 
   // modified to wiegand 32 bit format instead of HID
   case 32:
     facilityCode = decodeHIDFacilityCode(5, 16);
     cardNumber = decodeHIDCardNumber(17, 32);
-    cardChunk1Offset = 8;
-    bitHolderOffset = 14;
-    cardChunk2Offset = 10;
     break;
 
   case 33:
     facilityCode = decodeHIDFacilityCode(1, 8);
     cardNumber = decodeHIDCardNumber(8, 32);
-    cardChunk1Offset = 9;
-    bitHolderOffset = 13;
-    cardChunk2Offset = 11;
     break;
 
   case 34:
     facilityCode = decodeHIDFacilityCode(1, 17);
     cardNumber = decodeHIDCardNumber(17, 33);
-    cardChunk1Offset = 10;
-    bitHolderOffset = 12;
-    cardChunk2Offset = 12;
     break;
 
   case 35:
     facilityCode = decodeHIDFacilityCode(2, 14);
     cardNumber = decodeHIDCardNumber(14, 34);
-    cardChunk1Offset = 11;
-    bitHolderOffset = 11;
-    cardChunk2Offset = 13;
     break;
 
   case 36:
     facilityCode = decodeHIDFacilityCode(21, 33);
     cardNumber = decodeHIDCardNumber(1, 17);
-    cardChunk1Offset = 12;
-    bitHolderOffset = 10;
-    cardChunk2Offset = 14;
     break;
 
   default:
     Serial.println("[-] Unsupported bitCount for HID card");
     return;
   }
-
-  setCardChunkBits(cardChunk1Offset, bitHolderOffset, cardChunk2Offset);
-  hexCardData = String(cardChunk1, HEX) + prefixPad(String(cardChunk2, HEX), '0', 6);
-  // hexCardData = String(cardChunk1, HEX) + String(cardChunk2, HEX);
 }
 
 bool isSupportedWiegandBitCount(unsigned int bits)
@@ -886,10 +779,6 @@ void cleanupCardData()
   bitCount = 0;
   facilityCode = 0;
   cardNumber = 0;
-  bitHolder1 = 0;
-  bitHolder2 = 0;
-  cardChunk1 = 0;
-  cardChunk2 = 0;
   status = "";
   details = "";
 }
