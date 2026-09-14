@@ -20,7 +20,7 @@ const char *wiegandFormatsFile = "/wiegand_formats.json";
 const char defaultWiegandFormatsJson[] = R"json({
   "wiegandFormats": [
     {
-      "description": "DoorSim 26-bit legacy mapping",
+      "description": "HID H10301 26-bit",
       "bitCount": 26,
       "facilityCodeStart": 2,
       "facilityCodeEnd": 9,
@@ -36,6 +36,14 @@ const char defaultWiegandFormatsJson[] = R"json({
       "cardNumberEnd": 27
     },
     {
+      "description": "2804 Wiegand 28-bit",
+      "bitCount": 28,
+      "facilityCodeStart": 5,
+      "facilityCodeEnd": 12,
+      "cardNumberStart": 13,
+      "cardNumberEnd": 27
+    },
+    {
       "description": "DoorSim 29-bit legacy mapping",
       "bitCount": 29,
       "facilityCodeStart": 2,
@@ -44,7 +52,7 @@ const char defaultWiegandFormatsJson[] = R"json({
       "cardNumberEnd": 29
     },
     {
-      "description": "DoorSim 30-bit legacy mapping",
+      "description": "ATS Wiegand 30-bit",
       "bitCount": 30,
       "facilityCodeStart": 2,
       "facilityCodeEnd": 13,
@@ -52,7 +60,7 @@ const char defaultWiegandFormatsJson[] = R"json({
       "cardNumberEnd": 29
     },
     {
-      "description": "DoorSim 31-bit legacy mapping",
+      "description": "HID ADT 31-bit",
       "bitCount": 31,
       "facilityCodeStart": 2,
       "facilityCodeEnd": 5,
@@ -68,7 +76,7 @@ const char defaultWiegandFormatsJson[] = R"json({
       "cardNumberEnd": 32
     },
     {
-      "description": "DoorSim 33-bit legacy mapping",
+      "description": "HID D10202 33-bit",
       "bitCount": 33,
       "facilityCodeStart": 2,
       "facilityCodeEnd": 8,
@@ -76,7 +84,7 @@ const char defaultWiegandFormatsJson[] = R"json({
       "cardNumberEnd": 32
     },
     {
-      "description": "DoorSim 34-bit legacy mapping",
+      "description": "HID H10306 34-bit",
       "bitCount": 34,
       "facilityCodeStart": 2,
       "facilityCodeEnd": 17,
@@ -84,7 +92,7 @@ const char defaultWiegandFormatsJson[] = R"json({
       "cardNumberEnd": 33
     },
     {
-      "description": "DoorSim 35-bit legacy mapping",
+      "description": "HID Corporate 1000 35-bit",
       "bitCount": 35,
       "facilityCodeStart": 3,
       "facilityCodeEnd": 14,
@@ -98,6 +106,14 @@ const char defaultWiegandFormatsJson[] = R"json({
       "facilityCodeEnd": 33,
       "cardNumberStart": 2,
       "cardNumberEnd": 17
+    },
+    {
+      "description": "HID Corporate 1000 48-bit",
+      "bitCount": 48,
+      "facilityCodeStart": 3,
+      "facilityCodeEnd": 24,
+      "cardNumberStart": 25,
+      "cardNumberEnd": 47
     }
   ]
 })json";
@@ -714,6 +730,56 @@ void loadWiegandFormats()
     Serial.print("Failed to parse Wiegand formats: ");
     Serial.println(error.c_str());
     return;
+  }
+
+  JsonDocument defaultsDoc;
+  DeserializationError defaultsError = deserializeJson(defaultsDoc, defaultWiegandFormatsJson);
+  if (!defaultsError)
+  {
+    JsonArray formats = doc["wiegandFormats"].as<JsonArray>();
+    JsonArray defaultFormats = defaultsDoc["wiegandFormats"].as<JsonArray>();
+    bool changed = false;
+
+    for (JsonObject defaultFormat : defaultFormats)
+    {
+      unsigned int defaultBits = defaultFormat["bitCount"] | 0;
+      bool found = false;
+
+      for (JsonObject existingFormat : formats)
+      {
+        if ((existingFormat["bitCount"] | 0) == defaultBits)
+        {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found)
+      {
+        formats.add(defaultFormat);
+        changed = true;
+      }
+    }
+
+    if (changed)
+    {
+      File updatedFile = LittleFS.open(wiegandFormatsFile, "w");
+      if (updatedFile)
+      {
+        serializeJsonPretty(doc, updatedFile);
+        updatedFile.close();
+        Serial.println("Added missing built-in Wiegand formats.");
+      }
+      else
+      {
+        Serial.println("Failed to update Wiegand format file.");
+      }
+    }
+  }
+  else
+  {
+    Serial.print("Failed to parse built-in Wiegand formats: ");
+    Serial.println(defaultsError.c_str());
   }
 
   JsonArray formats = doc["wiegandFormats"].as<JsonArray>();
