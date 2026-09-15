@@ -13,6 +13,10 @@ struct CardData
     String rawCardData;
     String status;
     String details;
+    String formatId;
+    String formatDescription;
+    unsigned int formatCandidateCount;
+    unsigned int formatViableCount;
 };
 
 struct Credential

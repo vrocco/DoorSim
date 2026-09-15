@@ -1182,6 +1182,10 @@ void printCardData()
     cardDataArray[cardDataIndex].rawCardData = rawCardData;
     cardDataArray[cardDataIndex].status = status;
     cardDataArray[cardDataIndex].details = details;
+    cardDataArray[cardDataIndex].formatId = activeWiegandFormat != nullptr ? String(activeWiegandFormat->id) : "";
+    cardDataArray[cardDataIndex].formatDescription = activeWiegandFormat != nullptr ? String(activeWiegandFormat->description) : "";
+    cardDataArray[cardDataIndex].formatCandidateCount = activeWiegandCandidateCount;
+    cardDataArray[cardDataIndex].formatViableCount = activeWiegandViableCount;
     cardDataIndex++;
   }
 
@@ -1973,6 +1977,10 @@ void webServer()
           card["rawCardData"] = cardDataArray[i].rawCardData;
           card["status"] = cardDataArray[i].status;
           card["details"] = cardDataArray[i].details;
+          card["formatId"] = cardDataArray[i].formatId;
+          card["formatDescription"] = cardDataArray[i].formatDescription;
+          card["formatCandidateCount"] = cardDataArray[i].formatCandidateCount;
+          card["formatViableCount"] = cardDataArray[i].formatViableCount;
       }
       String response;
       serializeJson(doc, response);
