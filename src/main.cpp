@@ -293,6 +293,64 @@ const char defaultWiegandFormatsJson[] = R"json({
       "id": "doorsim-36-legacy"
     },
     {
+      "description": "HID S12906 36-bit",
+      "bitCount": 36,
+      "facilityCodeStart": 2,
+      "facilityCodeEnd": 9,
+      "cardNumberStart": 12,
+      "cardNumberEnd": 35,
+      "parityRules": [
+        {
+          "bit": 1,
+          "type": "odd",
+          "bits": [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ]
+        },
+        {
+          "bit": 36,
+          "type": "odd",
+          "bits": [
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35
+          ]
+        }
+      ],
+      "id": "hid-s12906-36"
+    },
+    {
       "description": "HID Corporate 1000 48-bit",
       "bitCount": 48,
       "facilityCodeStart": 3,
@@ -1439,6 +1497,33 @@ bool wiegandFormatHasParity(const WiegandFormat *format)
           (format->parityEvenBit > 0 && format->parityOddBit > 0));
 }
 
+void printWiegandCandidateDiagnostics(unsigned int bits)
+{
+  for (int i = 0; i < wiegandFormatCount; i++)
+  {
+    const WiegandFormat *format = &wiegandFormats[i];
+    if (format->bitCount != bits)
+    {
+      continue;
+    }
+
+    Serial.print("[*] Candidate ");
+    Serial.print(format->id);
+    Serial.print(" (");
+    Serial.print(format->description);
+    Serial.print("): ");
+
+    if (wiegandFormatHasParity(format))
+    {
+      Serial.println(validateWiegandParity(format) ? "parity OK" : "parity BAD");
+    }
+    else
+    {
+      Serial.println("no parity metadata");
+    }
+  }
+}
+
 const WiegandFormat *selectWiegandFormat(unsigned int bits,
                                          unsigned int *candidateCount,
                                          unsigned int *viableCount)
@@ -1577,6 +1662,7 @@ bool processHIDCard()
       Serial.print(" candidates, ");
       Serial.print(activeWiegandViableCount);
       Serial.println(" viable after parity.");
+      printWiegandCandidateDiagnostics(bitCount);
     }
     return false;
   }

@@ -23,5 +23,8 @@ jobs:
       - name: Install PlatformIO
         run: python -m pip install --upgrade platformio
 
+      - name: Test Wiegand format catalog
+        run: python tools/test_wiegand_formats.py
+
       - name: Build firmware
         run: platformio run
