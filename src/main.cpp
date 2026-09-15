@@ -777,10 +777,10 @@ void saveCredentialsToPreferences()
   // Write settings to JSON
   JsonDocument doc;
   doc["validCount"] = validCount;
-  JsonArray credentialsArray = doc.createNestedArray("credentials");
+  JsonArray credentialsArray = doc["credentials"].to<JsonArray>();
   for (int i = 0; i < validCount; i++)
   {
-    JsonObject credential = credentialsArray.createNestedObject();
+    JsonObject credential = credentialsArray.add<JsonObject>();
     credential["facilityCode"] = credentials[i].facilityCode;
     credential["cardNumber"] = credentials[i].cardNumber;
     credential["name"] = credentials[i].name;
