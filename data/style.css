@@ -1,5 +1,7 @@
 body {
     font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #fafafa;
 }
 
 header {
@@ -30,10 +32,51 @@ a:hover {
     padding: 20px;
 }
 
+.help-text {
+    color: #555;
+    max-width: 900px;
+}
+
+.card-panel {
+    background: white;
+    border: 1px solid #ddd;
+    border-left: 8px solid #999;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    padding: 16px;
+}
+
+.card-panel h2 {
+    margin-top: 0;
+}
+
+.card-panel.empty {
+    color: #555;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.dashboard-grid div {
+    background: #f7f7f7;
+    border: 1px solid #e4e4e4;
+    padding: 8px;
+}
+
+.dashboard-grid strong,
+.dashboard-grid span {
+    display: block;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
+    background: white;
 }
 
 th,
@@ -41,10 +84,23 @@ td {
     padding: 8px;
     text-align: left;
     border-bottom: 1px solid #ddd;
+    vertical-align: top;
 }
 
 th {
     background-color: #f2f2f2;
+}
+
+button {
+    cursor: pointer;
+}
+
+code {
+    word-break: break-all;
+}
+
+.raw-data {
+    font-size: 0.9em;
 }
 
 .hidden {
@@ -64,8 +120,24 @@ th {
     background-color: #90ee90;
 }
 
+.card-panel.authorized {
+    border-left-color: #1f8f1f;
+}
+
 .unauthorized {
-    background-color: #ff4433;
+    background-color: #ffb0a8;
+}
+
+.card-panel.unauthorized {
+    border-left-color: #cc2a1f;
+}
+
+.diagnostic {
+    background-color: #fff2b8;
+}
+
+.card-panel.diagnostic {
+    border-left-color: #c49a00;
 }
 
 .inputRow td {

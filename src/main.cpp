@@ -2000,6 +2000,27 @@ void webServer()
       serializeJson(doc, response);
       request->send(200, "application/json", response); });
 
+  server.on("/getWiegandFormats", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+      JsonDocument doc;
+      JsonArray formats = doc.to<JsonArray>();
+      for (int i = 0; i < wiegandFormatCount; i++) {
+          const WiegandFormat &format = wiegandFormats[i];
+          JsonObject item = formats.add<JsonObject>();
+          item["id"] = format.id;
+          item["description"] = format.description;
+          item["bitCount"] = format.bitCount;
+          item["facilityCodeStart"] = format.facilityCodeStart;
+          item["facilityCodeEnd"] = format.facilityCodeEnd;
+          item["cardNumberStart"] = format.cardNumberStart;
+          item["cardNumberEnd"] = format.cardNumberEnd;
+          item["hasParity"] = wiegandFormatHasParity(&format);
+          item["parityRuleCount"] = format.parityRuleCount > 0 ? format.parityRuleCount : (wiegandFormatHasParity(&format) ? 2 : 0);
+      }
+      String response;
+      serializeJson(doc, response);
+      request->send(200, "application/json", response); });
+
   server.on("/getSettings", HTTP_GET, [](AsyncWebServerRequest *request)
             {      
       JsonDocument doc;
@@ -2047,9 +2068,21 @@ void webServer()
         String facilityCodeStr = request->getParam("facilityCode")->value();
         String cardNumberStr = request->getParam("cardNumber")->value();
         String name = request->getParam("name")->value();
+        unsigned long facilityCode = facilityCodeStr.toInt();
+        unsigned long cardNumber = cardNumberStr.toInt();
 
-        credentials[validCount].facilityCode = facilityCodeStr.toInt();
-        credentials[validCount].cardNumber = cardNumberStr.toInt();
+        if (facilityCodeStr.length() == 0 || cardNumberStr.length() == 0 || name.length() == 0) {
+          request->send(400, "text/plain", "Facility code, card number, and name are required");
+          return;
+        }
+
+        if (checkCredential(facilityCode, cardNumber) != nullptr) {
+          request->send(409, "text/plain", "Credential already exists");
+          return;
+        }
+
+        credentials[validCount].facilityCode = facilityCode;
+        credentials[validCount].cardNumber = cardNumber;
         strncpy(credentials[validCount].name, name.c_str(), sizeof(credentials[validCount].name) - 1);
         credentials[validCount].name[sizeof(credentials[validCount].name) - 1] = '\0';
         validCount++;

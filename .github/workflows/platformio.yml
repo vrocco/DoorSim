@@ -26,5 +26,8 @@ jobs:
       - name: Test Wiegand format catalog
         run: python tools/test_wiegand_formats.py
 
+      - name: Test web assets
+        run: python tools/test_web_assets.py
+
       - name: Build firmware
         run: platformio run
