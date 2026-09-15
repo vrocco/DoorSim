@@ -16,11 +16,36 @@ def test_dashboard_and_sections_exist():
         'id="formatTable"',
         'id="rawDecodeInput"',
         'id="statusPanel"',
+        'id="menuToggle"',
+        'id="mainNav"',
+        'class="nav-link active"',
         "showSection('formats')",
         "showSection('tools')",
         "showSection('status')",
     ]:
         assert required in html
+
+
+def test_responsive_navigation_assets_present():
+    js = text("data/script.js")
+    css = text("data/style.css")
+    for required in [
+        "function toggleMenu()",
+        "function closeMenu()",
+        "function setActiveNav(section)",
+        "classList.toggle('open')",
+        "setActiveNav(section)",
+        "closeMenu()",
+    ]:
+        assert required in js
+    for required in [
+        "@media (max-width: 760px)",
+        ".menu-toggle",
+        ".main-nav.open",
+        "overflow-x: auto",
+        "grid-template-columns: repeat(auto-fit",
+    ]:
+        assert required in css
 
 
 def test_ctf_authorize_from_last_read_controls_exist():

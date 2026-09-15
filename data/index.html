@@ -10,16 +10,23 @@
 
 <body>
     <header>
-        <a onclick="showSection('lastRead')">Last Read</a>
-        <a onclick="showSection('ctfMode')">CTF Mode</a>
-        <a onclick="showSection('formats')">Formats</a>
-        <a onclick="showSection('tools')">Tools</a>
-        <a onclick="showSection('status')">Status</a>
-        <a onclick="showSection('settings')">Settings</a>
+        <div class="brand" onclick="showSection('lastRead')">
+            <span class="brand-mark">DS</span>
+            <span>DoorSim</span>
+        </div>
+        <button id="menuToggle" class="menu-toggle" onclick="toggleMenu()" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+        <nav id="mainNav" class="main-nav">
+            <a class="nav-link active" data-section="lastRead" onclick="showSection('lastRead')">Dashboard</a>
+            <a class="nav-link" data-section="ctfMode" onclick="showSection('ctfMode')">Enroll</a>
+            <a class="nav-link" data-section="formats" onclick="showSection('formats')">Formats</a>
+            <a class="nav-link" data-section="tools" onclick="showSection('tools')">Tools</a>
+            <a class="nav-link" data-section="status" onclick="showSection('status')">Status</a>
+            <a class="nav-link" data-section="settings" onclick="showSection('settings')">Settings</a>
+        </nav>
     </header>
     <div class="content">
         <div id="lastRead">
-            <h1>Last Read</h1>
+            <h1>Dashboard</h1>
             <div id="currentCard" class="card-panel empty">
                 <h2>No card read yet</h2>
                 <p>Present a card to populate this dashboard.</p>

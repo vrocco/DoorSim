@@ -280,6 +280,26 @@ function deleteCard(index) {
         .catch(error => console.error('Error deleting card:', error));
 }
 
+function toggleMenu() {
+    const nav = document.getElementById('mainNav');
+    const toggle = document.getElementById('menuToggle');
+    const isOpen = nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function closeMenu() {
+    const nav = document.getElementById('mainNav');
+    const toggle = document.getElementById('menuToggle');
+    nav.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+}
+
+function setActiveNav(section) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.section === section);
+    });
+}
+
 function showSection(section) {
     document.getElementById('lastRead').classList.add('hidden');
     document.getElementById('ctfMode').classList.add('hidden');
@@ -288,6 +308,8 @@ function showSection(section) {
     document.getElementById('status').classList.add('hidden');
     document.getElementById('settings').classList.add('hidden');
     document.getElementById(section).classList.remove('hidden');
+    setActiveNav(section);
+    closeMenu();
     if (section === 'formats' && !formatsLoaded) {
         updateFormatTable();
     }
