@@ -11,6 +11,16 @@
 
 #include "doorsim.h"
 
+#ifndef DOORSIM_BUILD_COMMIT
+#define DOORSIM_BUILD_COMMIT "unknown"
+#endif
+#ifndef DOORSIM_BUILD_BRANCH
+#define DOORSIM_BUILD_BRANCH "unknown"
+#endif
+#ifndef DOORSIM_BUILD_TIME
+#define DOORSIM_BUILD_TIME "unknown"
+#endif
+
 AsyncWebServer server(80);
 
 const char *settingsFile = "/settings.json";
@@ -1956,6 +1966,160 @@ void setupWifi()
   WiFi.softAP(ap_ssid, ap_passphrase, ap_channel, ssid_hidden);
 }
 
+unsigned long decodeFieldFromBits(const unsigned char *bits, unsigned int start, unsigned int end)
+{
+  unsigned long value = 0;
+  for (unsigned int pos = start; pos <= end; pos++)
+  {
+    value = (value << 1) | bits[pos - 1];
+  }
+  return value;
+}
+
+String rawBitsToHex(const unsigned char *bits, unsigned int count)
+{
+  static const char hexDigits[] = "0123456789ABCDEF";
+  String out = "";
+  unsigned int padBits = (4 - (count % 4)) % 4;
+  unsigned char nibble = 0;
+  unsigned int nibbleBits = 0;
+
+  for (unsigned int i = 0; i < padBits + count; i++)
+  {
+    unsigned char bit = i >= padBits ? bits[i - padBits] : 0;
+    nibble = (nibble << 1) | bit;
+    nibbleBits++;
+    if (nibbleBits == 4)
+    {
+      out += hexDigits[nibble];
+      nibble = 0;
+      nibbleBits = 0;
+    }
+  }
+
+  return out;
+}
+
+bool validateWiegandParityForBits(const WiegandFormat *format, const unsigned char *bits, unsigned int count)
+{
+  if (format == nullptr || count != format->bitCount)
+  {
+    return false;
+  }
+
+  if (format->parityRuleCount > 0)
+  {
+    for (unsigned int ruleIndex = 0; ruleIndex < format->parityRuleCount; ruleIndex++)
+    {
+      const WiegandParityRule &rule = format->parityRules[ruleIndex];
+      unsigned int ones = bits[rule.bit - 1];
+      for (unsigned int bit = 1; bit <= format->bitCount && bit <= 64; bit++)
+      {
+        if ((rule.mask & (1ULL << (bit - 1))) != 0)
+        {
+          ones += bits[bit - 1];
+        }
+      }
+      bool valid = rule.even ? ((ones % 2) == 0) : ((ones % 2) == 1);
+      if (!valid)
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (format->parityEvenBit == 0 || format->parityOddBit == 0)
+  {
+    return false;
+  }
+
+  unsigned int evenOnes = bits[format->parityEvenBit - 1];
+  for (unsigned int i = format->parityEvenStart; i <= format->parityEvenEnd; i++)
+  {
+    evenOnes += bits[i - 1];
+  }
+
+  unsigned int oddOnes = bits[format->parityOddBit - 1];
+  for (unsigned int i = format->parityOddStart; i <= format->parityOddEnd; i++)
+  {
+    oddOnes += bits[i - 1];
+  }
+
+  return ((evenOnes % 2) == 0) && ((oddOnes % 2) == 1);
+}
+
+void writeCandidateDiagnostics(JsonArray candidates, const unsigned char *bits, unsigned int count)
+{
+  for (int i = 0; i < wiegandFormatCount; i++)
+  {
+    const WiegandFormat &format = wiegandFormats[i];
+    if (format.bitCount != count)
+    {
+      continue;
+    }
+
+    JsonObject item = candidates.add<JsonObject>();
+    item["id"] = format.id;
+    item["description"] = format.description;
+    item["hasParity"] = wiegandFormatHasParity(&format);
+    item["parityOk"] = wiegandFormatHasParity(&format) ? validateWiegandParityForBits(&format, bits, count) : false;
+    item["viable"] = !wiegandFormatHasParity(&format) || validateWiegandParityForBits(&format, bits, count);
+    item["facilityCode"] = decodeFieldFromBits(bits, format.facilityCodeStart, format.facilityCodeEnd);
+    item["cardNumber"] = decodeFieldFromBits(bits, format.cardNumberStart, format.cardNumberEnd);
+  }
+}
+
+const WiegandFormat *selectWiegandFormatForBits(const unsigned char *bits, unsigned int count,
+                                                unsigned int *candidateCount,
+                                                unsigned int *viableCount)
+{
+  unsigned int matches = 0;
+  unsigned int viable = 0;
+  const WiegandFormat *onlyMatch = nullptr;
+  const WiegandFormat *onlyViable = nullptr;
+
+  for (int i = 0; i < wiegandFormatCount; i++)
+  {
+    const WiegandFormat *format = &wiegandFormats[i];
+    if (format->bitCount != count)
+    {
+      continue;
+    }
+    matches++;
+    onlyMatch = format;
+  }
+
+  if (matches == 1)
+  {
+    viable = 1;
+    onlyViable = onlyMatch;
+  }
+  else if (matches > 1)
+  {
+    for (int i = 0; i < wiegandFormatCount; i++)
+    {
+      const WiegandFormat *format = &wiegandFormats[i];
+      if (format->bitCount == count &&
+          (!wiegandFormatHasParity(format) || validateWiegandParityForBits(format, bits, count)))
+      {
+        viable++;
+        onlyViable = format;
+      }
+    }
+  }
+
+  if (candidateCount != nullptr)
+  {
+    *candidateCount = matches;
+  }
+  if (viableCount != nullptr)
+  {
+    *viableCount = viable;
+  }
+  return viable == 1 ? onlyViable : nullptr;
+}
+
 void webServer()
 {
 
@@ -2035,6 +2199,107 @@ void webServer()
       doc["ledValid"] = ledValid;
       doc["spkOnValid"] = spkOnValid;
       doc["spkOnInvalid"] = spkOnInvalid;
+      String response;
+      serializeJson(doc, response);
+      request->send(200, "application/json", response); });
+
+  server.on("/getStatus", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+      JsonDocument doc;
+      doc["firmwareCommit"] = DOORSIM_BUILD_COMMIT;
+      doc["firmwareBranch"] = DOORSIM_BUILD_BRANCH;
+      doc["buildTime"] = DOORSIM_BUILD_TIME;
+      doc["uptimeMs"] = millis();
+      doc["mode"] = MODE;
+      doc["wiegandFormatCount"] = wiegandFormatCount;
+      doc["credentialCount"] = validCount;
+      doc["scanCount"] = cardDataIndex;
+      doc["maxScanCount"] = MAX_CARDS;
+      doc["apSsid"] = ap_ssid;
+      doc["apIp"] = WiFi.softAPIP().toString();
+      doc["littleFsTotalBytes"] = LittleFS.totalBytes();
+      doc["littleFsUsedBytes"] = LittleFS.usedBytes();
+      String response;
+      serializeJson(doc, response);
+      request->send(200, "application/json", response); });
+
+  server.on("/decodeRaw", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+      if (!request->hasParam("bits")) {
+        request->send(400, "text/plain", "Missing bits parameter");
+        return;
+      }
+
+      String raw = request->getParam("bits")->value();
+      raw.trim();
+      if (raw.length() == 0 || raw.length() > MAX_BITS) {
+        request->send(400, "text/plain", "Raw bits must be 1-100 bits");
+        return;
+      }
+
+      unsigned char testBits[MAX_BITS] = {};
+      for (unsigned int i = 0; i < raw.length(); i++) {
+        char ch = raw.charAt(i);
+        if (ch != '0' && ch != '1') {
+          request->send(400, "text/plain", "Raw bits may contain only 0 and 1");
+          return;
+        }
+        testBits[i] = ch == '1' ? 1 : 0;
+      }
+
+      unsigned int candidateCount = 0;
+      unsigned int viableCount = 0;
+      const WiegandFormat *selected = selectWiegandFormatForBits(testBits, raw.length(), &candidateCount, &viableCount);
+      JsonDocument doc;
+      doc["rawCardData"] = raw;
+      doc["bitCount"] = raw.length();
+      doc["hexCardData"] = rawBitsToHex(testBits, raw.length());
+      doc["formatCandidateCount"] = candidateCount;
+      doc["formatViableCount"] = viableCount;
+      doc["eligibleForAuthorization"] = false;
+      doc["diagnosticOnly"] = true;
+      JsonArray candidates = doc["candidates"].to<JsonArray>();
+      writeCandidateDiagnostics(candidates, testBits, raw.length());
+
+      if (selected != nullptr) {
+        doc["status"] = "Decoded";
+        doc["formatId"] = selected->id;
+        doc["formatDescription"] = selected->description;
+        doc["facilityCode"] = decodeFieldFromBits(testBits, selected->facilityCodeStart, selected->facilityCodeEnd);
+        doc["cardNumber"] = decodeFieldFromBits(testBits, selected->cardNumberStart, selected->cardNumberEnd);
+        doc["parityOk"] = wiegandFormatHasParity(selected) ? validateWiegandParityForBits(selected, testBits, raw.length()) : false;
+      } else {
+        doc["status"] = candidateCount == 0 ? "Unsupported" : (viableCount == 0 ? "No format match" : "Ambiguous");
+        doc["formatId"] = "";
+        doc["formatDescription"] = "";
+        doc["facilityCode"] = 0;
+        doc["cardNumber"] = 0;
+        doc["parityOk"] = false;
+      }
+
+      String response;
+      serializeJson(doc, response);
+      request->send(200, "application/json", response); });
+
+  server.on("/exportScans", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+      JsonDocument doc;
+      JsonArray cards = doc.to<JsonArray>();
+      for (int i = 0; i < cardDataIndex; i++) {
+          JsonObject card = cards.add<JsonObject>();
+          card["index"] = i + 1;
+          card["bitCount"] = cardDataArray[i].bitCount;
+          card["facilityCode"] = cardDataArray[i].facilityCode;
+          card["cardNumber"] = cardDataArray[i].cardNumber;
+          card["hexCardData"] = cardDataArray[i].hexCardData;
+          card["rawCardData"] = cardDataArray[i].rawCardData;
+          card["status"] = cardDataArray[i].status;
+          card["details"] = cardDataArray[i].details;
+          card["formatId"] = cardDataArray[i].formatId;
+          card["formatDescription"] = cardDataArray[i].formatDescription;
+          card["formatCandidateCount"] = cardDataArray[i].formatCandidateCount;
+          card["formatViableCount"] = cardDataArray[i].formatViableCount;
+      }
       String response;
       serializeJson(doc, response);
       request->send(200, "application/json", response); });

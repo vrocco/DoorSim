@@ -14,7 +14,11 @@ def test_dashboard_and_sections_exist():
         'id="currentCard"',
         'id="lastReadCardsTable"',
         'id="formatTable"',
+        'id="rawDecodeInput"',
+        'id="statusPanel"',
         "showSection('formats')",
+        "showSection('tools')",
+        "showSection('status')",
     ]:
         assert required in html
 
@@ -49,6 +53,30 @@ def test_add_card_duplicate_guard_present():
     cpp = text("src/main.cpp")
     assert "Credential already exists" in cpp
     assert "checkCredential(facilityCode, cardNumber)" in cpp
+
+
+def test_raw_decode_and_status_endpoints_wired():
+    js = text("data/script.js")
+    cpp = text("src/main.cpp")
+    ini = text("platformio.ini")
+    for required in [
+        "fetch(`/decodeRaw?bits=",
+        "function renderCandidateRows(candidates)",
+        "function exportScanHistory()",
+        "fetch('/exportScans')",
+        "fetch('/getStatus')",
+    ]:
+        assert required in js
+    for required in [
+        'server.on("/decodeRaw"',
+        'server.on("/exportScans"',
+        'server.on("/getStatus"',
+        'doc["diagnosticOnly"] = true',
+        'doc["eligibleForAuthorization"] = false',
+        'DOORSIM_BUILD_COMMIT',
+    ]:
+        assert required in cpp
+    assert "extra_scripts = pre:tools/build_version.py" in ini
 
 
 def test_styles_cover_diagnostics():

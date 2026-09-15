@@ -95,6 +95,17 @@ button {
     cursor: pointer;
 }
 
+textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+    width: 100%;
+}
+
+#rawDecodeInput {
+    font-family: monospace;
+    margin-bottom: 10px;
+}
+
 code {
     word-break: break-all;
 }

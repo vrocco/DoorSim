@@ -13,6 +13,8 @@
         <a onclick="showSection('lastRead')">Last Read</a>
         <a onclick="showSection('ctfMode')">CTF Mode</a>
         <a onclick="showSection('formats')">Formats</a>
+        <a onclick="showSection('tools')">Tools</a>
+        <a onclick="showSection('status')">Status</a>
         <a onclick="showSection('settings')">Settings</a>
     </header>
     <div class="content">
@@ -96,6 +98,24 @@
                 <tbody>
                 </tbody>
             </table>
+        </div>
+        <div id="tools" class="hidden">
+            <h1>Raw Wiegand Tools</h1>
+            <p class="help-text">Paste raw Wiegand bits to decode them without triggering relay, speaker, card history, or credential authorization.</p>
+            <textarea id="rawDecodeInput" rows="4" placeholder="Paste 0/1 bits here"></textarea>
+            <br>
+            <button onclick="decodeRawBits()">Decode Raw Bits</button>
+            <button onclick="exportScanHistory()">Export Scan History</button>
+            <div id="rawDecodeResult" class="card-panel empty">
+                <h2>No diagnostic decode yet</h2>
+            </div>
+        </div>
+        <div id="status" class="hidden">
+            <h1>Device Status</h1>
+            <p class="help-text">Status comes from the running firmware and helps confirm what is actually flashed.</p>
+            <div id="statusPanel" class="card-panel empty">
+                <h2>Status not loaded</h2>
+            </div>
         </div>
         <div id="settings" class="hidden">
             <h1>Settings</h1>

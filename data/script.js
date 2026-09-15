@@ -7,6 +7,9 @@ const lastReadCardsTableBody = document.getElementById('lastReadCardsTable').get
 const formatTableBody = document.getElementById('formatTable').getElementsByTagName('tbody')[0];
 const importExportArea = document.getElementById('importExportArea');
 const currentCardPanel = document.getElementById('currentCard');
+const rawDecodeInput = document.getElementById('rawDecodeInput');
+const rawDecodeResult = document.getElementById('rawDecodeResult');
+const statusPanel = document.getElementById('statusPanel');
 
 function setText(cell, value) {
     cell.textContent = value === undefined || value === null ? '' : value;
@@ -281,10 +284,15 @@ function showSection(section) {
     document.getElementById('lastRead').classList.add('hidden');
     document.getElementById('ctfMode').classList.add('hidden');
     document.getElementById('formats').classList.add('hidden');
+    document.getElementById('tools').classList.add('hidden');
+    document.getElementById('status').classList.add('hidden');
     document.getElementById('settings').classList.add('hidden');
     document.getElementById(section).classList.remove('hidden');
     if (section === 'formats' && !formatsLoaded) {
         updateFormatTable();
+    }
+    if (section === 'status') {
+        updateDeviceStatus();
     }
 }
 
@@ -376,6 +384,123 @@ function updateFormatTable() {
             });
         })
         .catch(error => console.error('Error fetching Wiegand formats:', error));
+}
+
+function formatBytes(value) {
+    if (value === undefined || value === null) {
+        return '';
+    }
+    return `${value} bytes`;
+}
+
+function formatUptime(ms) {
+    const totalSeconds = Math.floor((ms || 0) / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+function updateDeviceStatus() {
+    fetch('/getStatus')
+        .then(response => response.json())
+        .then(status => {
+            statusPanel.className = 'card-panel';
+            statusPanel.innerHTML = `
+                <h2>Firmware ${status.firmwareCommit || 'unknown'}</h2>
+                <div class="dashboard-grid">
+                    <div><strong>Branch</strong><span>${status.firmwareBranch || 'unknown'}</span></div>
+                    <div><strong>Built</strong><span>${status.buildTime || 'unknown'}</span></div>
+                    <div><strong>Uptime</strong><span>${formatUptime(status.uptimeMs)}</span></div>
+                    <div><strong>Mode</strong><span>${status.mode || ''}</span></div>
+                    <div><strong>Formats</strong><span>${status.wiegandFormatCount}</span></div>
+                    <div><strong>Credentials</strong><span>${status.credentialCount}</span></div>
+                    <div><strong>Scans</strong><span>${status.scanCount}/${status.maxScanCount}</span></div>
+                    <div><strong>AP</strong><span>${status.apSsid || ''} ${status.apIp || ''}</span></div>
+                    <div><strong>LittleFS Used</strong><span>${formatBytes(status.littleFsUsedBytes)}</span></div>
+                    <div><strong>LittleFS Total</strong><span>${formatBytes(status.littleFsTotalBytes)}</span></div>
+                </div>
+            `;
+        })
+        .catch(error => console.error('Error fetching device status:', error));
+}
+
+function renderCandidateRows(candidates) {
+    if (!candidates || candidates.length === 0) {
+        return '<p>No matching format candidates.</p>';
+    }
+    const rows = candidates.map(candidate => `
+        <tr>
+            <td>${candidate.id}</td>
+            <td>${candidate.description}</td>
+            <td>${candidate.hasParity ? (candidate.parityOk ? 'OK' : 'BAD') : 'No parity'}</td>
+            <td>${candidate.viable ? 'Yes' : 'No'}</td>
+            <td>${candidate.facilityCode}</td>
+            <td>${candidate.cardNumber}</td>
+        </tr>
+    `).join('');
+    return `
+        <h3>Candidate Comparison</h3>
+        <table>
+            <thead><tr><th>ID</th><th>Description</th><th>Parity</th><th>Viable</th><th>FC</th><th>CN</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function decodeRawBits() {
+    const bits = (rawDecodeInput.value || '').replace(/\s+/g, '');
+    if (!bits) {
+        alert('Paste raw 0/1 Wiegand bits first.');
+        return;
+    }
+    fetch(`/decodeRaw?bits=${encodeURIComponent(bits)}`)
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => { throw new Error(text || 'Decode failed'); });
+            }
+            return response.json();
+        })
+        .then(result => {
+            rawDecodeResult.className = `card-panel ${statusClass(result.status)}`;
+            rawDecodeResult.innerHTML = `
+                <h2>${result.status} — ${result.bitCount} bits</h2>
+                <div class="dashboard-grid">
+                    <div><strong>Format</strong><span>${result.formatDescription || formatLabel(result)}</span></div>
+                    <div><strong>Facility Code</strong><span>${result.facilityCode}</span></div>
+                    <div><strong>Card Number</strong><span>${result.cardNumber}</span></div>
+                    <div><strong>Authorization</strong><span>Diagnostic only: never authorizes</span></div>
+                    <div><strong>Viable</strong><span>${result.formatViableCount}/${result.formatCandidateCount}</span></div>
+                    <div><strong>Hex</strong><span><button onclick="copyToClipboard('${result.hexCardData || ''}')">Copy</button> <code>${result.hexCardData || ''}</code></span></div>
+                </div>
+                <p><strong>Raw:</strong> <button onclick="copyToClipboard('${result.rawCardData || ''}')">Copy</button> <code class="raw-data">${result.rawCardData || ''}</code></p>
+                ${renderCandidateRows(result.candidates)}
+            `;
+        })
+        .catch(error => alert(error.message));
+}
+
+function downloadText(filename, text) {
+    const blob = new Blob([text], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function exportScanHistory() {
+    fetch('/exportScans')
+        .then(response => response.json())
+        .then(data => {
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadText(`doorsim-scans-${stamp}.json`, JSON.stringify(data, null, 2));
+        })
+        .catch(error => alert(`Error exporting scan history: ${error.message}`));
 }
 
 function exportData() {
