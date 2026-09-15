@@ -58,6 +58,8 @@ void saveCredentialsToPreferences();
 void loadCredentialsFromPreferences();
 void loadWiegandFormats();
 bool wiegandFormatHasParity(const WiegandFormat *format);
+String describeWiegandCandidate(const WiegandFormat *format);
+String buildWiegandCandidateDetails(unsigned int bits);
 void printWiegandCandidateDiagnostics(unsigned int bits);
 const WiegandFormat *selectWiegandFormat(unsigned int bits,
                                          unsigned int *candidateCount,

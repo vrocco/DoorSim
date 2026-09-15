@@ -1078,7 +1078,7 @@ void printCardData()
     lcd.print(hexCardData);
 
     status = activeWiegandViableCount == 0 ? "No format match" : "Ambiguous";
-    details = "Hex: " + hexCardData;
+    details = buildWiegandCandidateDetails(bitCount);
   }
   else if (MODE == "CTF")
   {
@@ -1554,6 +1554,54 @@ bool wiegandFormatHasParity(const WiegandFormat *format)
           (format->parityEvenBit > 0 && format->parityOddBit > 0));
 }
 
+String describeWiegandCandidate(const WiegandFormat *format)
+{
+  if (format == nullptr)
+  {
+    return "unknown";
+  }
+
+  String description = String(format->id) + " ";
+  if (wiegandFormatHasParity(format))
+  {
+    description += validateWiegandParity(format) ? "parity OK" : "parity BAD";
+  }
+  else
+  {
+    description += "no parity";
+  }
+  return description;
+}
+
+String buildWiegandCandidateDetails(unsigned int bits)
+{
+  String text = "Hex: " + hexCardData + "; Candidates: ";
+  bool found = false;
+  for (int i = 0; i < wiegandFormatCount; i++)
+  {
+    const WiegandFormat *format = &wiegandFormats[i];
+    if (format->bitCount != bits)
+    {
+      continue;
+    }
+
+    if (found)
+    {
+      text += ", ";
+    }
+    text += describeWiegandCandidate(format);
+    found = true;
+  }
+
+  if (!found)
+  {
+    text += "none";
+  }
+
+  text += "; Viable: " + String(activeWiegandViableCount) + "/" + String(activeWiegandCandidateCount);
+  return text;
+}
+
 void printWiegandCandidateDiagnostics(unsigned int bits)
 {
   for (int i = 0; i < wiegandFormatCount; i++)
@@ -1565,19 +1613,9 @@ void printWiegandCandidateDiagnostics(unsigned int bits)
     }
 
     Serial.print("[*] Candidate ");
-    Serial.print(format->id);
-    Serial.print(" (");
     Serial.print(format->description);
-    Serial.print("): ");
-
-    if (wiegandFormatHasParity(format))
-    {
-      Serial.println(validateWiegandParity(format) ? "parity OK" : "parity BAD");
-    }
-    else
-    {
-      Serial.println("no parity metadata");
-    }
+    Serial.print(": ");
+    Serial.println(describeWiegandCandidate(format));
   }
 }
 
