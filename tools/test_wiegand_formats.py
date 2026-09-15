@@ -52,6 +52,16 @@ def build_s12906(fc=12, issue=1, cn=123456):
     return bits
 
 
+def build_c15001(oem=900, fc=12, cn=12345):
+    bits = [0] * 36
+    set_field(bits, 2, 11, oem)
+    set_field(bits, 12, 19, fc)
+    set_field(bits, 20, 35, cn)
+    for rule in c15001_format()["parityRules"]:
+        apply_rule(bits, rule)
+    return bits
+
+
 def has_parity(fmt):
     return bool(fmt.get("parityRules")) or (
         fmt.get("parityEvenBit", 0) > 0 and fmt.get("parityOddBit", 0) > 0
@@ -103,6 +113,10 @@ def s12906_format():
     return next(fmt for fmt in load_data_catalog() if fmt["id"] == "hid-s12906-36")
 
 
+def c15001_format():
+    return next(fmt for fmt in load_data_catalog() if fmt["id"] == "hid-c15001-36")
+
+
 def migrate_defaults(existing, defaults):
     by_id = {fmt.get("id", ""): fmt for fmt in existing if fmt.get("id")}
     descriptions = {fmt.get("description", "") for fmt in existing}
@@ -133,16 +147,32 @@ def test_s12906_definition():
     ]
 
 
-def test_embedded_defaults_include_s12906_for_migration():
+def test_c15001_definition():
+    fmt = c15001_format()
+    assert fmt["description"] == "HID KeyScan 36-bit"
+    assert (fmt["facilityCodeStart"], fmt["facilityCodeEnd"]) == (12, 19)
+    assert (fmt["cardNumberStart"], fmt["cardNumberEnd"]) == (20, 35)
+    assert fmt["parityRules"] == [
+        {"bit": 1, "type": "even", "bits": list(range(2, 19))},
+        {"bit": 36, "type": "odd", "bits": list(range(19, 36))},
+    ]
+
+
+def test_embedded_defaults_include_new_formats_for_migration():
     embedded_ids = {fmt.get("id") for fmt in load_embedded_catalog()}
     assert "hid-s12906-36" in embedded_ids
+    assert "hid-c15001-36" in embedded_ids
 
 
-def test_migration_adds_s12906_by_stable_id():
-    existing = [fmt for fmt in load_data_catalog() if fmt.get("id") != "hid-s12906-36"]
+def test_migration_adds_new_formats_by_stable_id():
+    existing = [
+        fmt for fmt in load_data_catalog()
+        if fmt.get("id") not in {"hid-s12906-36", "hid-c15001-36"}
+    ]
     migrated, changed = migrate_defaults(existing, load_embedded_catalog())
     assert changed
     assert sum(1 for fmt in migrated if fmt.get("id") == "hid-s12906-36") == 1
+    assert sum(1 for fmt in migrated if fmt.get("id") == "hid-c15001-36") == 1
 
 
 def test_unique_candidate_decodes_even_with_bad_parity():
@@ -165,6 +195,17 @@ def test_multiple_candidates_can_select_one_parity_viable():
     assert viable == 1
     assert selected is not None
     assert selected["id"] == "hid-s12906-36"
+
+
+def test_s12906_and_c15001_parity_can_discriminate():
+    selected, candidates, viable = select_format(
+        [s12906_format(), c15001_format()],
+        build_c15001(),
+    )
+    assert candidates == 2
+    assert viable == 1
+    assert selected is not None
+    assert selected["id"] == "hid-c15001-36"
 
 
 def test_multiple_viable_candidates_are_ambiguous():
